@@ -1,5 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
-import { BrandMark } from "@/components/common";
+import { InstitutionMark } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { answeredCount } from "@/lib/attempts";
 import { formatDateTime } from "@/lib/time";
@@ -52,7 +52,7 @@ export const SubmittedScreen = ({ test, attempt, questions, result, onExit }) =>
           <Button onClick={onExit}>Back to tests</Button>
         </div>
         <div className="mt-10 flex justify-center text-primary/60">
-          <BrandMark size={22} />
+          <InstitutionMark size={22} />
         </div>
       </div>
     </div>

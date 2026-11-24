@@ -5,12 +5,12 @@ import { InteractiveDotPlot } from "@/components/common/charts/InteractiveDotPlo
 import { Spark } from "@/components/common/charts/Spark";
 import { DiscussionPreview } from "@/components/teacher-dashboard/DiscussionPreview";
 import { LiveActivityFeed } from "@/components/teacher-dashboard/LiveActivityFeed";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
-import { TOPICS, TREND } from "@/data/analytics";
-import { CLASS_STATS } from "@/data/classes";
-import { GRADE_QUEUE } from "@/data/tests";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
+import { useClassAnalytics } from "@/hooks/useAnalytics";
+import { useGradeQueue } from "@/hooks/useGrading";
 import { useTests } from "@/hooks/useTests";
+import { classSentence, topicInsights } from "@/lib/analytics";
 import { Badge } from "@/components/ui/badge";
 
 // ═══════════════════════════════════════════════════════════════
@@ -25,13 +25,24 @@ const TeacherDashboard = () => {
     .filter((t) => t.status === "draft" || t.status === "scheduled")
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 5);
-  const { activeClassObj } = useApp();
-  const last = TREND[TREND.length - 1];
-  const stats = CLASS_STATS[activeClassObj?.short] || CLASS_STATS["11A"];
+  const { activeClassObj, activeSubject, user } = useApp();
+  const { data: analytics } = useClassAnalytics({ classId: activeClassObj?.id, subjectId: activeSubject?.id });
+  const { data: queue } = useGradeQueue();
 
-  const pendingReviews = GRADE_QUEUE.filter((g) => g.status !== "reviewed").length;
-  const lowConfidence = GRADE_QUEUE.filter((g) => g.confidence === "low" && g.status !== "reviewed").length;
-  const studentsAtRisk = Math.max(2, Math.round(stats.students * 0.15));
+  const trend = analytics?.trend ?? [];
+  const topics = analytics?.topics ?? [];
+  const summary = analytics?.summary;
+  const insights = summary ? topicInsights(topics, { students: summary.studentsTotal, target: summary.target }) : [];
+  const last = trend[trend.length - 1];
+
+  const open = queue.filter((g) => g.status !== "reviewed");
+  const pendingReviews = open.length;
+  const lowConfidence = open.filter((g) => g.confidence === "low").length;
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  // "Dr. R. Chen" → "Dr. Chen": drop middle initials
+  const shortName = (user?.name ?? "").split(" ").filter((w) => !/^[A-Z]\.$/.test(w) || w === "Dr.").join(" ");
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
@@ -44,10 +55,10 @@ const TeacherDashboard = () => {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Good morning, Dr. Chen
+            {greeting}{shortName ? `, ${shortName}` : ""}
           </h1>
           <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            Six tests this term. The class is improving, but two topics are holding it back.
+            {analytics ? classSentence(summary) : " "}
           </p>
         </div>
       </div>
@@ -59,31 +70,35 @@ const TeacherDashboard = () => {
           icon={TrendingUp}
           iconTone="primary"
           label="Class average"
-          value={last.class}
-          unit="%"
-          delta="+12 since T1"
-          deltaTone="success"
+          value={last?.class ?? "—"}
+          unit={last ? "%" : undefined}
+          delta={
+            summary?.changeSinceFirst != null
+              ? `${summary.changeSinceFirst > 0 ? "+" : summary.changeSinceFirst < 0 ? "−" : ""}${Math.abs(summary.changeSinceFirst)} since T1`
+              : last ? "First test" : "No graded tests yet"
+          }
+          deltaTone={summary?.changeSinceFirst < 0 ? "danger" : "success"}
           onClick={() => navigate("/teacher/analytics")}
-          sparkline={<Spark data={TREND.map((d) => d.class)} color="var(--color-primary)" height={32} />}
+          sparkline={trend.length > 1 ? <Spark data={trend.map((d) => d.class)} color="var(--color-primary)" height={32} /> : undefined}
         />
         <MetricCard
           icon={Target}
           iconTone="danger"
           label="Weak topics"
-          value={2}
-          unit="of 6"
-          delta="Below target"
-          deltaTone="danger"
+          value={summary ? summary.belowTarget.length : "—"}
+          unit={summary?.topicsTotal ? `of ${summary.topicsTotal}` : undefined}
+          delta={summary?.belowTarget.length ? "Below target" : "On target"}
+          deltaTone={summary?.belowTarget.length ? "danger" : "success"}
           onClick={() => navigate("/teacher/analytics")}
         />
         <MetricCard
           icon={Users}
           iconTone="warning"
           label="Students at risk"
-          value={studentsAtRisk}
-          unit={`of ${stats.students}`}
-          delta="Under 75%"
-          deltaTone="warning"
+          value={summary ? summary.studentsAtRisk : "—"}
+          unit={summary ? `of ${summary.studentsTotal}` : undefined}
+          delta={`Under ${summary?.target ?? 75}%`}
+          deltaTone={summary?.studentsAtRisk ? "warning" : "success"}
           onClick={() => navigate("/teacher/analytics")}
         />
         <MetricCard
@@ -105,37 +120,37 @@ const TeacherDashboard = () => {
             onAction={() => navigate("/teacher/analytics")}
           />
           <div className="flex-1">
-            <InteractiveDotPlot
-              rows={TOPICS}
-              onDrillDown={(d) => {
-                toast.push(`Opening students struggling with ${d.topic}`, "info");
-                navigate("/teacher/analytics");
-              }}
-            />
+            {topics.length ? (
+              <InteractiveDotPlot
+                rows={topics}
+                onDrillDown={(d) => {
+                  toast.push(`Opening students struggling with ${d.topic}`, "info");
+                  navigate("/teacher/analytics");
+                }}
+              />
+            ) : (
+              <p className="py-10 text-center text-[13.5px] text-ink-3">
+                Topic accuracy appears once students have submitted and every mark is final.
+              </p>
+            )}
           </div>
         </Bento>
 
         <Bento span="sm:col-span-2 lg:col-span-1">
           <SectionHeader label="What matters" />
           <div className="flex flex-col gap-4">
-            <div>
-              <div className="mb-1 text-[14px] font-semibold text-ink">Wave Optics</div>
-              <div className="text-[13px] leading-relaxed text-ink-2">
-                Weakest at <span className="font-semibold text-danger">46%</span>. 18 of 32 students got the lens sign convention wrong.
+            {insights.length === 0 && (
+              <p className="text-[13px] leading-relaxed text-ink-3">Findings show up here once there is graded work.</p>
+            )}
+            {insights.map((it, k) => (
+              <div key={it.name} className={k ? "border-t border-rule pt-4" : ""}>
+                <div className="mb-1 text-[14px] font-semibold text-ink">{it.name}</div>
+                <div className="text-[13px] leading-relaxed text-ink-2">
+                  {it.kind === "rest" ? "At or above" : it.kind === "weakest" ? "Weakest at" : "Sits at"}{" "}
+                  <span className={`font-semibold ${it.tone === "danger" ? "text-danger" : it.tone === "warning" ? "text-warning" : "text-success"}`}>{it.accuracy}%</span>. {it.detail}.
+                </div>
               </div>
-            </div>
-            <div className="border-t border-rule pt-4">
-              <div className="mb-1 text-[14px] font-semibold text-ink">Electromagnetism</div>
-              <div className="text-[13px] leading-relaxed text-ink-2">
-                Sits at <span className="font-semibold text-warning">58%</span> and declining slowly.
-              </div>
-            </div>
-            <div className="border-t border-rule pt-4">
-              <div className="mb-1 text-[14px] font-semibold text-ink">Everything else</div>
-              <div className="text-[13px] leading-relaxed text-ink-2">
-                At or above <span className="font-semibold text-success">74%</span>. Safe to reduce weight next draft.
-              </div>
-            </div>
+            ))}
           </div>
         </Bento>
 

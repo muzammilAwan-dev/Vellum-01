@@ -48,11 +48,12 @@ export const useDraftAutosave = (testId) => {
     }
   }, [testId]);
 
+  // Named so a failed save can schedule its own retry without naming `schedule` before it exists.
   const schedule = useCallback(
-    (ms) => {
+    function scheduleSave(ms) {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        flush().catch(() => schedule(RETRY_MS));
+        flush().catch(() => scheduleSave(RETRY_MS));
       }, ms);
     },
     [flush],

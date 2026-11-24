@@ -55,7 +55,7 @@ export const publishTest = (id, { availableFrom, availableUntil, settings } = {}
   call(`/tests/${id}/publish`, {
     method: "POST",
     body: { availableFrom, availableUntil, settings },
-    invalidates: tests,
+    invalidates: [...tests, ["bank"]], // publishing saves the test's questions to the bank
   });
 
 /** POST /api/tests/:id/start-now — open a scheduled test immediately. */

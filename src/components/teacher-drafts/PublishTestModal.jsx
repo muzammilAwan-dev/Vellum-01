@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { ModalShell } from "@/components/common/ModalShell";
-import { Field, inputClass } from "@/components/common/FormField";
+import { Field } from "@/components/common/FormField";
+import { inputClass } from "@/components/common/inputClass";
 import { Button } from "@/components/ui/button";
 import { publishTest } from "@/api/tests";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { validateQuestions } from "@/lib/questions";
 import { formatDateTime, fromLocalInput, toLocalInput } from "@/lib/time";
 import { cn } from "@/lib/cn";
 import { DEFAULT_SETTINGS, RELEASE_LABELS } from "@/lib/testSettings";
+import { useNow } from "@/hooks/useNow";
 
 const HOUR = 3_600_000;
 
@@ -70,6 +72,7 @@ export const PublishTestModal = ({ test, open, onClose, onPublished }) => {
   );
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const now = useNow(15_000, open); // "the opening time is in the past" is judged against the clock, not a render
   const setSetting = (key) => (value) => setSettings((s) => ({ ...s, [key]: value }));
 
   const issues = useMemo(() => (test ? collectIssues(test) : []), [test]);
@@ -83,7 +86,7 @@ export const PublishTestModal = ({ test, open, onClose, onPublished }) => {
   let scheduleError = null;
   if (when === "schedule") {
     if (Number.isNaN(fromMs) || Number.isNaN(untilMs)) scheduleError = "Pick both an opening and a closing time.";
-    else if (fromMs < Date.now() - 60_000) scheduleError = "The opening time is in the past.";
+    else if (fromMs < now - 60_000) scheduleError = "The opening time is in the past.";
     else if (untilMs - fromMs < duration * 60_000)
       scheduleError = `The window must be at least as long as the test (${duration} min).`;
   }
@@ -94,7 +97,7 @@ export const PublishTestModal = ({ test, open, onClose, onPublished }) => {
   const handlePublish = async () => {
     setBusy(true);
     try {
-      await publishTest(
+      const published = await publishTest(
         test.id,
         {
           ...(when === "schedule" ? { availableFrom: fromMs, availableUntil: untilMs } : {}),
@@ -107,6 +110,8 @@ export const PublishTestModal = ({ test, open, onClose, onPublished }) => {
           : "Published — students can start now",
         "success",
       );
+      const added = published?.bankSummary?.added ?? 0;
+      if (added) toast.push(`${added} new ${added === 1 ? "question" : "questions"} saved to your question bank`, "info");
       onPublished?.();
       onClose();
     } catch (err) {
@@ -228,7 +233,39 @@ export const PublishTestModal = ({ test, open, onClose, onPublished }) => {
             title="Let students go back to earlier questions"
             body="Off: one question at a time with no way back."
           />
+          <Toggle
+            checked={settings.shuffleQuestions}
+            onChange={setSetting("shuffleQuestions")}
+            title="Shuffle question order"
+            body="Each student gets their own order, fixed when they begin."
+          />
+          <Toggle
+            checked={settings.shuffleOptions}
+            onChange={setSetting("shuffleOptions")}
+            title="Shuffle answer options"
+            body="Multiple-choice only. “All of the above” style options stay last; true/false is not shuffled."
+          />
         </div>
+
+        <div className="mb-1 mt-4 text-[13px] font-semibold text-ink">During the test</div>
+        <div className="divide-y divide-rule">
+          <Toggle
+            checked={settings.requireFullscreen}
+            onChange={setSetting("requireFullscreen")}
+            title="Require fullscreen"
+            body="Asked for when they press Begin; leaving it (Esc or F11) is recorded and they're prompted to return."
+          />
+          <Toggle
+            checked={settings.blockCopyPaste}
+            onChange={setSetting("blockCopyPaste")}
+            title="Block copy, paste and right-click"
+            body="Each attempt is recorded. This deters casual copying — it can't stop a second device."
+          />
+        </div>
+        <p className="mt-2 text-[12px] leading-relaxed text-ink-3">
+          Tab switches, clicking out of the window and developer-tool shortcuts are always recorded. Students are told what
+          is recorded before they begin. Flags are clues for you to review, not proof.
+        </p>
       </div>
     </ModalShell>
   );

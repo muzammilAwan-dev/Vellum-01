@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 
 import Login from "@/pages/Login";
+import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/NotFound";
 import RouteError from "@/pages/RouteError";
 import { Layout } from "@/layout/Layout";
@@ -22,8 +23,16 @@ const page = (loader) => lazy(loader);
 // Admin
 const AdminDashboard = page(() => import("@/pages/AdminDashboard"));
 const AdminUsers = page(() => import("@/pages/AdminUsers"));
+const AdminInstitution = page(() => import("@/pages/AdminInstitution"));
 const AdminClasses = page(() => import("@/pages/AdminClasses"));
 const AdminClassDetail = page(() => import("@/pages/AdminClassDetail"));
+const AdminAuditOverview = page(() => import("@/pages/AdminAuditOverview"));
+const AdminAuditEvents = page(() => import("@/pages/AdminAuditEvents"));
+const TeacherAudit = page(() => import("@/pages/TeacherAudit"));
+const AdminAuditTests = page(() => import("@/pages/AdminAuditTests"));
+const AdminAuditTest = page(() => import("@/pages/AdminAuditTest"));
+const AdminAuditTeachers = page(() => import("@/pages/AdminAuditTeachers"));
+const AdminAuditTeacher = page(() => import("@/pages/AdminAuditTeacher"));
 
 // Teacher
 const TeacherDashboard = page(() => import("@/pages/TeacherDashboard"));
@@ -37,8 +46,11 @@ const TeacherDraftReview = page(() => import("@/pages/TeacherDraftReview"));
 const TeacherTestPreview = page(() => import("@/pages/TeacherTestPreview"));
 const TeacherLiveControl = page(() => import("@/pages/TeacherLiveControl"));
 const TeacherGradeReview = page(() => import("@/pages/TeacherGradeReview"));
+const TeacherTestResults = page(() => import("@/pages/TeacherTestResults"));
 const TeacherAnalytics = page(() => import("@/pages/TeacherAnalytics"));
 const TeacherStudentProfile = page(() => import("@/pages/TeacherStudentProfile"));
+const TeacherStudentReport = page(() => import("@/pages/TeacherStudentReport"));
+const TeacherShareQueue = page(() => import("@/pages/TeacherShareQueue"));
 const TeacherCourses = page(() => import("@/pages/TeacherCourses"));
 const TeacherDiscussion = page(() => import("@/pages/TeacherDiscussion"));
 
@@ -51,6 +63,9 @@ const StudentCourses = page(() => import("@/pages/StudentCourses"));
 const StudentDiscussion = page(() => import("@/pages/StudentDiscussion"));
 const StudentProgress = page(() => import("@/pages/StudentProgress"));
 const TakeTest = page(() => import("@/pages/TakeTest"));
+
+// Shared by every role
+const Profile = page(() => import("@/pages/Profile"));
 
 // `gated` pages act on the active subject, so they wait for it (or say there is none).
 const route = (path, Page, title, { gated = false } = {}) => ({
@@ -67,6 +82,7 @@ const route = (path, Page, title, { gated = false } = {}) => ({
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login />, errorElement: <RouteError />, handle: { title: "Sign in" } },
+  { path: "/privacy", element: <Privacy />, errorElement: <RouteError />, handle: { title: "Privacy policy" } },
 
   {
     path: "/",
@@ -85,11 +101,24 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AdminDashboard />, handle: { title: "Admin overview" } },
           route("users", AdminUsers, "Accounts"),
+          route("institution", AdminInstitution, "Institution"),
+          route("profile", Profile, "Profile"),
           {
             path: "classes",
             children: [
               { index: true, element: <AdminClasses />, handle: { title: "Classes" } },
               route(":classId", AdminClassDetail, "Class"),
+            ],
+          },
+          {
+            path: "audit",
+            children: [
+              { index: true, element: <AdminAuditOverview />, handle: { title: "Audit" } },
+              route("tests", AdminAuditTests, "Audit"),
+              route("tests/:testId", AdminAuditTest, "Test audit"),
+              route("teachers", AdminAuditTeachers, "Audit"),
+              route("events", AdminAuditEvents, "Audit"),
+              route("teachers/:teacherId", AdminAuditTeacher, "Teacher audit"),
             ],
           },
         ],
@@ -101,18 +130,23 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <TeacherDashboard />, handle: { title: "Overview" } },
           route("materials", TeacherMaterials, "Materials", { gated: true }),
-          route("clusters", TeacherClusters, "Clusters"),
-          route("bank", TeacherQuestionBank, "Question bank"),
-          route("drafts", TeacherDrafts, "Drafts"),
+          route("clusters", TeacherClusters, "Clusters", { gated: true }),
+          route("bank", TeacherQuestionBank, "Question bank", { gated: true }),
+          route("drafts", TeacherDrafts, "Tests"),
           route("drafts/new", TeacherNewTest, "New test", { gated: true }),
           route("subjects", TeacherSubjects, "Subjects"),
           route("drafts/:testId", TeacherDraftReview, "Review test"),
           route("live", TeacherLiveControl, "Live test"),
+          route("results/:testId", TeacherTestResults, "Test results"),
           route("review", TeacherGradeReview, "Grade review"),
           route("analytics", TeacherAnalytics, "Analytics"),
+          route("analytics/share", TeacherShareQueue, "Share reports"),
           route("analytics/:studentId", TeacherStudentProfile, "Student"),
+          route("analytics/:studentId/report", TeacherStudentReport, "Report"),
+          route("audit", TeacherAudit, "Grading history"),
           route("lms", TeacherCourses, "Courses"),
           route("chat", TeacherDiscussion, "Discussion"),
+          route("profile", Profile, "Profile"),
         ],
       },
 
@@ -127,6 +161,7 @@ export const router = createBrowserRouter([
           route("lms", StudentCourses, "Courses"),
           route("chat", StudentDiscussion, "Discussion"),
           route("analytics", StudentProgress, "Progress"),
+          route("profile", Profile, "Profile"),
         ],
       },
     ],

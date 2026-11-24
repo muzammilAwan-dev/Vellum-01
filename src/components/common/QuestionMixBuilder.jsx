@@ -1,3 +1,4 @@
+import { Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { QUESTION_TYPES } from "@/lib/questions";
 
@@ -80,9 +81,10 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                       update(r.type, { count: Math.max(0, r.count - 1) })
                     }
                     disabled={r.count <= 0}
-                    className="grid w-7 place-items-center text-[15px] text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+                    aria-label={`Fewer ${meta.label} questions`}
+                    className="grid w-7 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
                   >
-                    −
+                    <Minus size={14} />
                   </button>
                   <input
                     type="text"
@@ -103,9 +105,10 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                       update(r.type, { count: Math.min(meta.max, r.count + 1) })
                     }
                     disabled={r.count >= meta.max}
-                    className="grid w-7 place-items-center text-[15px] text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+                    aria-label={`More ${meta.label} questions`}
+                    className="grid w-7 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
                   >
-                    +
+                    <Plus size={14} />
                   </button>
                 </div>
                 <span className="font-mono text-[13px] text-ink-3">×</span>
@@ -135,9 +138,9 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                 type="button"
                 onClick={() => removeRow(r.type)}
                 aria-label={`Remove ${meta.label}`}
-                className="grid size-6 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
+                className="grid size-7 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
               >
-                ×
+                <X size={14} />
               </button>
             </div>
           );
@@ -152,7 +155,7 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
               key={t}
               type="button"
               onClick={() => addRow(t)}
-              className="rounded-full border border-dashed border-rule-2 px-2.5 py-1 text-[12px] font-medium text-ink-2 transition-colors hover:border-solid hover:border-ink-3 hover:text-ink"
+              className="whitespace-nowrap rounded-full border border-dashed border-rule-2 px-2.5 py-1 text-[12px] font-medium text-ink-2 transition-colors hover:border-solid hover:border-ink-3 hover:text-ink"
             >
               + {QUESTION_TYPE_META[t].label}
             </button>
@@ -179,9 +182,3 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
     </div>
   );
 };
-
-export const DEFAULT_MIX = [
-  { type: "mcq", count: 10, marks: 2 },
-  { type: "short", count: 5, marks: 4 },
-  { type: "long", count: 2, marks: 10 },
-];

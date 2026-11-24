@@ -1,8 +1,9 @@
 import { Plus, Download, Search } from "lucide-react";
 import { useLocation, useMatches, useNavigate } from "react-router";
-import { useApp } from "@/context/AppContext";
+import { useApp } from "@/context/useApp";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
+import { shortcutLabel } from "@/lib/platform";
 
 // ── Action lookup ─────────────────────────────────────────────
 function getActionFor(pathname, role, navigate) {
@@ -72,7 +73,7 @@ export const TopBar = ({ onSearch }) => {
   return (
     <header
       className={cn(
-        "sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-rule bg-bg/90 px-10 backdrop-blur-sm tablet:flex"
+        "no-print sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-rule bg-bg/90 px-10 backdrop-blur-sm tablet:flex"
       )}
     >
       <h1 className="truncate font-serif text-[19px] font-semibold tracking-[-0.015em] text-ink">
@@ -88,8 +89,8 @@ export const TopBar = ({ onSearch }) => {
         >
           <Search size={15} />
           <span className="hidden lg:inline">Search anything</span>
-          <kbd className="ml-auto hidden rounded-md border border-rule-2 bg-raised px-1.5 py-0.5 text-[12px] font-semibold text-ink-3 lg:inline">
-            ⌘K
+          <kbd className="ml-auto hidden rounded-md border border-rule-2 bg-raised px-1.5 py-0.5 text-[12px] font-semibold text-ink-3 lg:pointer-fine:inline">
+            {shortcutLabel("K")}
           </kbd>
         </button>
 

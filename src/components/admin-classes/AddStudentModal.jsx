@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Chip, ChipRow, Field, ModalShell, inputClass } from "@/components/common";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 // ═══════════════════════════════════════════════════════════════
 // ADD STUDENT MODAL
@@ -93,19 +94,18 @@ export const AddStudentModal = ({ open, onClose, unassigned = [], onCreate, onEn
             />
           </Field>
           <div className="rounded-[var(--radius-control)] border border-primary/25 bg-primary-soft px-3.5 py-2.5 text-[12px] leading-relaxed text-primary">
-            A temporary password will be emailed automatically
+            A temporary password is shown once after you add the student. Hand it over in person; they choose their own at first sign-in.
           </div>
         </>
       ) : (
         <Field label="Student">
-          <select value={existingId} onChange={(e) => setExistingId(e.target.value)} className={inputClass}>
-            <option value="">{unassigned.length ? "— Choose a student —" : "No students without a class"}</option>
-            {unassigned.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name} · {u.email}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={existingId}
+            onChange={setExistingId}
+            options={unassigned.map((u) => ({ value: u.id, label: `${u.name} · ${u.email}` }))}
+            placeholder={unassigned.length ? "Choose a student" : "No students without a class"}
+            disabled={!unassigned.length}
+          />
         </Field>
       )}
     </ModalShell>

@@ -3,9 +3,10 @@ import { useNavigate, useParams } from "react-router";
 import { createUser, deleteClass, updateClass, updateUser } from "@/api/admin";
 import { PageError, PageLoading } from "@/components/common";
 import { AddStudentModal } from "@/components/admin-classes/AddStudentModal";
+import { TemporaryPasswordDialog } from "@/components/admin-users/TemporaryPasswordDialog";
 import { ClassDetail } from "@/components/admin-classes/ClassDetail";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 import { useClassRoster, useUsers } from "@/hooks/useAdmin";
 import { useClasses } from "@/hooks/useSubjects";
 
@@ -18,6 +19,7 @@ const AdminClassDetail = () => {
   const toast = useToast();
   const { setConfirmState } = useApp();
   const [addOpen, setAddOpen] = useState(false);
+  const [secret, setSecret] = useState(null); // temporary password, shown once
   const classesRes = useClasses();
   const rosterRes = useClassRoster(classId);
   const usersRes = useUsers();
@@ -82,8 +84,9 @@ const AdminClassDetail = () => {
         onClose={() => setAddOpen(false)}
         unassigned={users.filter((u) => u.role === "student" && !u.classId)}
         onCreate={async ({ name, email }) => {
-          await createUser({ name, email, role: "student", classId: cls.id });
+          const made = await createUser({ name, email, role: "student", classId: cls.id });
           toast.push(`${name} added to the class`, "success");
+          setSecret({ name: made.name, email: made.email, password: made.temporaryPassword, reason: "created" });
         }}
         onEnroll={async (userId) => {
           const u = users.find((x) => x.id === userId);
@@ -91,6 +94,7 @@ const AdminClassDetail = () => {
           toast.push(`${u?.name ?? "Student"} added to the class`, "success");
         }}
       />
+      <TemporaryPasswordDialog state={secret} onClose={() => setSecret(null)} />
     </>
   );
 };

@@ -41,10 +41,7 @@ export const useCountUp = (target, { duration = 900, start = 0 } = {}) => {
   const hasRun = useRef(false);
 
   useEffect(() => {
-    if (reduced) {
-      setValue(target);
-      return;
-    }
+    if (reduced) return; // no animation: the hook returns `target` directly (see below)
     const el = elementRef.current;
     if (!el) return;
 
@@ -87,5 +84,5 @@ export const useCountUp = (target, { duration = 900, start = 0 } = {}) => {
     return () => observer.disconnect();
   }, [target, duration, start, reduced]);
 
-  return { value, ref: elementRef };
+  return { value: reduced ? target : value, ref: elementRef };
 };

@@ -1,8 +1,8 @@
 import { Menu, Search } from "lucide-react";
-import { Wordmark } from "@/components/common";
+import { InstitutionWordmark } from "@/components/common";
 
 export const MobileTopBar = ({ onMenuToggle, onSearch, showSearch = true }) => (
-  <div className="sticky top-0 z-25 flex h-16 items-center gap-2 border-b border-rule bg-bg px-3 tablet:hidden">
+  <div className="no-print sticky top-0 z-25 flex h-16 items-center gap-2 border-b border-rule bg-bg px-3 tablet:hidden">
     <button
       onClick={onMenuToggle}
       aria-label="Open navigation menu"
@@ -12,7 +12,7 @@ export const MobileTopBar = ({ onMenuToggle, onSearch, showSearch = true }) => (
     </button>
 
     <div className="flex flex-1 items-center gap-2">
-      <Wordmark size={28} />
+      <InstitutionWordmark size={28} />
     </div>
 
     {showSearch && onSearch && (

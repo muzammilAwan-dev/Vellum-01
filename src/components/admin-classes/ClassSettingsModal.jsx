@@ -1,12 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Chip, ChipRow, Field, ModalShell, inputClass } from "@/components/common";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { Button } from "@/components/ui/button";
 
 // ═══════════════════════════════════════════════════════════════
 // CLASS SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════
-export const ClassSettingsModal = ({
+// The form lives in an inner component that only exists while the modal is open
+// (and is rebuilt for another class), so its fields start from the class's
+// current values without a reset effect.
+export const ClassSettingsModal = (props) =>
+  props.open ? <ClassSettingsForm key={props.cls?.id ?? "none"} {...props} /> : null;
+
+const ClassSettingsForm = ({
   open,
   onClose,
   cls,
@@ -16,18 +22,9 @@ export const ClassSettingsModal = ({
   onDelete,
 }) => {
   const toast = useToast();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(cls?.name || "");
   const [busy, setBusy] = useState(false);
-  const [assigned, setAssigned] = useState([]);
-
-  useEffect(() => {
-    if (!open) return;
-    setName(cls?.name || "");
-    setAssigned(currentTeacherIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, cls?.id]);
-
-  if (!open) return null;
+  const [assigned, setAssigned] = useState(currentTeacherIds);
 
   const toggleTeacher = (t) =>
     setAssigned((a) => (a.includes(t) ? a.filter((x) => x !== t) : [...a, t]));

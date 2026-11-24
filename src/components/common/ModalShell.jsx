@@ -1,8 +1,9 @@
 // ── Modal shell with glass surface ──
-export const ModalShell = ({ open, onClose, title, children, maxWidth = "480px", footer }) => {
+// closeOnBackdrop={false}: a click outside does not close it (for one-time secrets).
+export const ModalShell = ({ open, onClose, title, children, maxWidth = "480px", footer, closeOnBackdrop = true }) => {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-100 grid animate-fade-in place-items-center bg-[oklch(0.15_0.06_272_/_0.55)] p-5 backdrop-blur-md max-narrow:place-items-end max-narrow:p-0" onClick={onClose}>
+    <div className="fixed inset-0 z-100 grid animate-fade-in place-items-center bg-[oklch(0.15_0.06_272_/_0.55)] p-5 backdrop-blur-md max-narrow:place-items-end max-narrow:p-0" onClick={closeOnBackdrop ? onClose : undefined}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth }}

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { CreateClassModal } from "./CreateClassModal";
 import { createClass, deleteClass } from "@/api/admin";
 import { Bento, ConfirmDialog, PageError, PageLoading } from "@/components/common";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { useUsers } from "@/hooks/useAdmin";
 import { useClasses } from "@/hooks/useSubjects";
 import { Button } from "@/components/ui/button";
@@ -102,9 +102,9 @@ export const ClassList = () => {
 
             <div className="mt-4 flex flex-wrap gap-1.5">
               {c.teachers.map((t) => (
-                <span
+                <span title={t.name}
                   key={t.id}
-                  className="rounded-full border border-rule-2 bg-surface/60 px-2 py-0.5 text-[12px] font-medium text-ink-2"
+                  className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-rule-2 bg-surface/60 px-2 py-0.5 text-[12px] font-medium text-ink-2"
                 >
                   {t.name}
                 </span>

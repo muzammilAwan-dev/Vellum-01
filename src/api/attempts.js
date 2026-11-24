@@ -23,7 +23,12 @@ export const startAttempt = (testId) =>
 export const saveAnswer = (attemptId, questionId, value) =>
   call(`/attempts/${attemptId}/answers`, { method: "PUT", body: { questionId, value } });
 
-/** POST /api/tests/:id/flag — an anti-cheat event, e.g. "tab-switch". */
+/**
+ * POST /api/tests/:id/flag — an anti-cheat event: { type } where type is one of
+ * "tab-switch", "window-blur", "fullscreen-exit", "fullscreen-denied",
+ * "right-click", "copy", "cut", "paste", "page-leave-attempt" (see lib/antiCheat.js).
+ * Anything else is `400 INVALID_FLAG`. Ignored once the attempt is submitted.
+ */
 export const logFlag = (testId, type) =>
   call(`/tests/${testId}/flag`, { method: "POST", body: { type } });
 
@@ -36,5 +41,5 @@ export const submitAttempt = (testId, { reason = "manual", answers } = {}) =>
   call(`/tests/${testId}/submit`, {
     method: "POST",
     body: { reason, answers },
-    invalidates: [["attempts"], ["tests"], ["grading"], ["review"]],
+    invalidates: [["attempts"], ["tests"], ["grading"], ["review"], ["analytics"]],
   });

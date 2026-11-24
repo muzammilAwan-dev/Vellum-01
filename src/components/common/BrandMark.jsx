@@ -11,12 +11,7 @@
 // truth for generating every icon size: scripts in /public are
 // derived from this shape — change both together.
 // ═══════════════════════════════════════════════════════════════
-export const BRAND = {
-  indigo: "#414FD2",
-  navy: "#0E143B",
-  gold: "#EBBD57",
-  paper: "#F7F6F2",
-};
+import { BRAND } from "./brand";
 
 export const BrandMark = ({ size = 28, title }) => (
   <svg

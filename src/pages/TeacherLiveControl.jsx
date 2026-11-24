@@ -16,8 +16,8 @@ import {
   Th,
 } from "@/components/common";
 import { NumberStepper } from "@/components/teacher-live-control/NumberStepper";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 import { useTestRoster } from "@/hooks/useAttempts";
 import { useTests } from "@/hooks/useTests";
 import { getSettings, RELEASE_LABELS } from "@/lib/testSettings";
@@ -49,9 +49,10 @@ const LiveTestView = ({ test }) => {
   const rows = useMemo(
     () =>
       roster.map(({ student, attempt }) => {
-        const flagEvents = attempt?.flags.filter((f) => f.type === "tab-switch") ?? [];
+        const flagEvents = attempt?.flags ?? [];
         let status = "waiting";
         if (attempt?.status === "submitted") status = "submitted";
+        else if (attempt?.clientSilent) status = "silent";
         else if (attempt) status = ended ? "submitting" : "working";
         return {
           name: student.name,
@@ -68,7 +69,7 @@ const LiveTestView = ({ test }) => {
   if (rosterLoading) return <PageLoading />;
   if (rosterError) return <PageError error={rosterError} onRetry={refetchRoster} />;
 
-  const working = rows.filter((r) => r.status === "working" || r.status === "submitting").length;
+  const working = rows.filter((r) => ["working", "submitting", "silent"].includes(r.status)).length;
   const done = rows.filter((r) => r.status === "submitted").length;
   const waiting = rows.filter((r) => r.status === "waiting").length;
   const flagged = rows.filter((r) => r.flags > 0).length;
@@ -224,7 +225,9 @@ const LiveTestView = ({ test }) => {
                           ? "primary"
                           : r.status === "submitting"
                             ? "warning"
-                            : "muted"
+                            : r.status === "silent"
+                              ? "danger"
+                              : "muted"
                     }
                   >
                     {
@@ -232,6 +235,7 @@ const LiveTestView = ({ test }) => {
                         submitted: "Submitted",
                         working: "Working",
                         submitting: "Submitting…",
+                        silent: "No signal",
                         waiting: "Not started",
                       }[r.status]
                     }
@@ -241,7 +245,7 @@ const LiveTestView = ({ test }) => {
                   {r.flags ? (
                     <span
                       title={r.lastFlag ? `Last: ${formatDateTime(r.lastFlag)}` : undefined}
-                      className="rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning"
+                      className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning"
                     >
                       {r.flags}
                     </span>
@@ -271,7 +275,10 @@ const LiveTestView = ({ test }) => {
         </Bento>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate("/teacher/review")}>Review submissions →</Button>
+          <Button onClick={() => navigate(`/teacher/results/${test.id}`)}>View results →</Button>
+          <Button onClick={() => navigate("/teacher/review")} variant="outline">
+            Review submissions
+          </Button>
           <Button onClick={() => navigate("/teacher/drafts")} variant="outline">
             Back to tests
           </Button>

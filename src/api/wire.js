@@ -22,6 +22,8 @@ const TIME_KEYS = new Set([
   "at",
   "reviewedAt",
   "closesAt",
+  "previousLoginAt",
+  "passwordChangedAt",
 ]);
 
 // Plain `{}` objects only — FormData, Date, Blob etc. pass through untouched.

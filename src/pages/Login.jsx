@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Wordmark } from "@/components/common";
+import { Link, useNavigate } from "react-router";
+import { InstitutionWordmark } from "@/components/common";
+import { useBranding } from "@/hooks/useInstitution";
 import { login } from "@/api/auth";
 import { USE_MOCK } from "@/api/client";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 import { cn } from "@/lib/cn";
 import { ROLE_HOME } from "@/routes/paths";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ const DEMO_EMAIL = {
 const Login = () => {
   // The role cards exist only for the fake server, so the demo can sign in
   // as anyone. With a real backend the account decides the role.
+  const { data: branding } = useBranding();
   const [role, setRole] = useState("teacher");
   const [email, setEmail] = useState(USE_MOCK ? DEMO_EMAIL.teacher : "");
   const [password, setPassword] = useState("");
@@ -51,10 +53,10 @@ const Login = () => {
   };
 
   return (
-    <div className="grid min-h-dvh grid-cols-1 bg-bg tablet:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-dvh grid-cols-1 bg-bg max-tablet:grid-rows-[auto_1fr] tablet:grid-cols-[1.1fr_1fr]">
       {/* ── Left: brand panel — navy ink on ruled vellum lines ── */}
       <div className="relative flex flex-col justify-between overflow-hidden bg-sidebar-bg px-5 py-4 tablet:p-14">
-        <Wordmark size={34} tone="sidebar" className="relative z-10" />
+        <InstitutionWordmark size={34} tone="sidebar" className="relative z-10" />
 
         <div className="relative z-10 py-16 max-tablet:hidden tablet:py-0">
           <h1 className="font-serif text-[48px] font-semibold leading-[1.02] tracking-[-0.025em] text-sidebar-ink tablet:text-[72px]">
@@ -69,7 +71,8 @@ const Login = () => {
         </div>
 
         <div className="relative z-10 text-[13px] font-medium text-sidebar-ink-3 max-tablet:hidden">
-          Westfield Academy · Spring term 2026
+          {branding?.name}
+          <span className="mt-1 block text-[12px] font-normal text-sidebar-ink-3/80">Powered by Vellum</span>
         </div>
       </div>
 
@@ -80,7 +83,7 @@ const Login = () => {
             Sign in
           </h2>
           <p className="mb-8 mt-1.5 text-[13.5px] text-ink-3">
-            Use your school account.
+            Use your institution account.
           </p>
 
           {USE_MOCK && (
@@ -155,6 +158,10 @@ const Login = () => {
               Demo build — pick a role; any password works.
             </p>
           )}
+
+          <p className="mt-4 text-center text-[12.5px]">
+            <Link to="/privacy" className="text-ink-3 underline underline-offset-2 hover:text-ink">Privacy policy</Link>
+          </p>
         </form>
       </div>
     </div>

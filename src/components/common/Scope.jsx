@@ -1,4 +1,4 @@
-import { useApp } from "@/context/AppContext";
+import { useApp } from "@/context/useApp";
 
 // The "Physics · 11A" label at the top of screens. Teachers work inside one
 // subject of one class; students see their class only (their screens span

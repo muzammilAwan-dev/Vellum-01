@@ -1,17 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { call } from "@/api/client";
 import { timeAgo } from "@/lib/time";
+import { useNow } from "./useNow";
 import { useResource } from "./useResource";
-
-// Re-renders now and then so "5 min ago" labels stay current.
-const useNow = (intervalMs) => {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
-};
 
 /**
  * All tests the current user can see → { data: Test[], isLoading, error, refetch }.

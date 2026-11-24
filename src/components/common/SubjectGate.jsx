@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { useApp } from "@/context/AppContext";
+import { useApp } from "@/context/useApp";
 import { resolvePath } from "@/routes/paths";
 import { EmptyState } from "./EmptyState";
 import { PageError, PageLoading } from "./QueryState";

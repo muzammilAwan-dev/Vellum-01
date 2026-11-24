@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 // VARIANTS REVIEW SCREEN
 // ═══════════════════════════════════════════════════════════════
 export const VariantsReviewScreen = ({
+  subjectId,
   config,
   variants,
   onVariantsChange,
@@ -19,6 +20,9 @@ export const VariantsReviewScreen = ({
   scope = "",
   title,
   readOnly = false,
+  lockReason,
+  lockSummary,
+  publishDisabled = false,
   saveState,
 }) => {
   const [openIndex, setOpenIndex] = useState(null);
@@ -43,6 +47,7 @@ export const VariantsReviewScreen = ({
     const v = variants[openIndex];
     return (
       <DraftReviewScreen
+        subjectId={subjectId}
         config={config}
         questions={v.questions}
         onQuestionsChange={(qs) => {
@@ -55,6 +60,8 @@ export const VariantsReviewScreen = ({
         onSave={readOnly ? undefined : () => setOpenIndex(null)}
         scope={scope}
         readOnly={readOnly}
+        lockReason={lockReason}
+        lockSummary={lockSummary}
         saveState={saveState}
         backLabel="← Back to student list"
         heading={`Review — ${v.studentName}`}
@@ -110,7 +117,7 @@ export const VariantsReviewScreen = ({
             </Button>
           )}
           {onPublishAll && (
-            <Button onClick={onPublishAll}>
+            <Button onClick={onPublishAll} disabled={publishDisabled}>
               Publish all {variants.length} →
             </Button>
           )}
@@ -223,11 +230,19 @@ export const VariantsReviewScreen = ({
                     </Td>
                     <Td>
                       {v.weakTopic ? (
-                        <span className="rounded-full border border-warning/25 bg-warning-dim px-2 py-0.5 text-[12px] font-medium text-warning">
+                        <span
+                          title={
+                            v.weakSource === "class"
+                              ? `${v.weakTopic}: no graded tests for this student yet, so this is the class's weakest topic (${v.weakAccuracy}%)`
+                              : `${v.weakTopic}: this student's lowest topic in graded tests (${v.weakAccuracy}%)`
+                          }
+                          className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-warning/25 bg-warning-dim px-2 py-0.5 text-[12px] font-medium text-warning"
+                        >
                           {v.weakTopic}
+                          {v.weakSource === "class" && <span className="font-normal opacity-80"> · class</span>}
                         </span>
                       ) : (
-                        <span className="text-ink-3">—</span>
+                        <span className="text-ink-3" title="No topic is below target for this student">—</span>
                       )}
                     </Td>
                     <Td className="text-right font-mono tabular-nums">

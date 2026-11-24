@@ -7,7 +7,8 @@ import { buildPaletteItems } from "./paletteItems";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { ConfirmDialog } from "@/components/common";
-import { useApp } from "@/context/AppContext";
+import { useApp } from "@/context/useApp";
+import { useBranding } from "@/hooks/useInstitution";
 import { useRecentViews } from "@/hooks/useRecentViews";
 
 // ═══════════════════════════════════════════════════════════════
@@ -43,6 +44,7 @@ export const Layout = () => {
   } = useApp();
 
   const matches = useMatches();
+  const { data: branding } = useBranding();
   const location = useLocation();
   const navigate = useNavigate();
   const mainRef = useRef(null);
@@ -51,8 +53,21 @@ export const Layout = () => {
   // ── Document title from the deepest route's handle.title ──
   useEffect(() => {
     const title = [...matches].reverse().find((m) => m.handle?.title)?.handle?.title;
-    document.title = title ? `${title} · Vellum` : "Vellum";
-  }, [matches]);
+    const app = branding?.shortName;
+    document.title = title ? (app ? `${title} · ${app}` : title) : (app ?? "Vellum");
+  }, [matches, branding?.shortName]);
+
+  // Cmd/Ctrl+K toggles the command palette (the hint in the top bar promised it).
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCmdOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [setCmdOpen]);
 
   // ── A11y: after client-side navigation, move focus to <main> so screen-reader
   //    and keyboard users start at the new page (not the old nav link). Skipped
@@ -71,10 +86,10 @@ export const Layout = () => {
   }, [location.pathname, role, pushRecentView]);
 
   return (
-    <div className="grid min-h-dvh grid-cols-1 tablet:grid-cols-[240px_1fr]">
+    <div className="grid min-h-dvh grid-cols-1 tablet:grid-cols-[auto_minmax(0,1fr)] print:block">
       <a
         href="#main"
-        className="sr-only z-100 rounded-[var(--radius-control)] bg-primary px-4 py-2 text-[13px] font-semibold text-on-primary focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="no-print sr-only z-100 rounded-[var(--radius-control)] bg-primary px-4 py-2 text-[13px] font-semibold text-on-primary focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
       >
         Skip to content
       </a>

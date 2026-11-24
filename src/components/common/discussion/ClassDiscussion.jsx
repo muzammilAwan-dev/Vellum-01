@@ -1,14 +1,21 @@
-import { useState, useMemo } from "react";
-import { Plus, MessageCircle, Sparkles, Check, Pin, Search as SearchIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, MessageCircle, Sparkles, Check, Pin, Search as SearchIcon, Trash2, X } from "lucide-react";
+import { Avatar } from "@/components/common/Avatar";
 import { Bento } from "@/components/common/Bento";
 import { Chip, ChipRow } from "@/components/common/Chips";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
-import { Field, inputClass } from "@/components/common/FormField";
+import { Field } from "@/components/common/FormField";
+import { inputClass } from "@/components/common/inputClass";
 import { MetricCard } from "@/components/common/MetricCard";
 import { ModalShell } from "@/components/common/ModalShell";
-import { useToast } from "@/context/ToastContext";
+import { PageError, PageLoading } from "@/components/common/QueryState";
+import { addReply as postReply, createThread as postThread, deleteReply as removeReply, deleteThread, updateThread } from "@/api/threads";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
+import { useThreads } from "@/hooks/useThreads";
 import { cn } from "@/lib/cn";
-import { createId } from "@/lib/id";
+import { canResolve, sortThreads, tagsFor, timeAgo, validateReply, validateThread } from "@/lib/discussion";
 import { Button } from "@/components/ui/button";
 import { Scope } from "@/components/common";
 
@@ -19,13 +26,21 @@ const TAG_TONE = {
   Announcement: "bg-danger-dim text-danger border-danger/25",
 };
 
-export const ClassDiscussion = ({
-  role,
-  threads: initialThreads,
-  onThreadsChange,
-}) => {
+// ═══════════════════════════════════════════════════════════════
+// CLASS DISCUSSION — threads of one class (GET /threads). Everything is saved
+// on the server; authors and times come from the account and the clock, not
+// from the page. A teacher sees the class chosen in the sidebar; a student's
+// class is implied.
+// ═══════════════════════════════════════════════════════════════
+export const ClassDiscussion = ({ role }) => {
   const toast = useToast();
-  const [threads, setThreads] = useState(initialThreads);
+  const { user, activeClassObj, scopeLoading } = useApp();
+  const isTeacher = role === "teacher";
+  const { data, isLoading, error, refetch } = useThreads({
+    classId: isTeacher ? activeClassObj?.id : undefined,
+    enabled: !isTeacher || Boolean(activeClassObj),
+  });
+  const threads = useMemo(() => data ?? [], [data]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
@@ -34,126 +49,81 @@ export const ClassDiscussion = ({
   const [newTitle, setNewTitle] = useState("");
   const [newBody, setNewBody] = useState("");
   const [newTag, setNewTag] = useState("Question");
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(null);
 
-  const userName = role === "teacher" ? "Dr. R. Chen" : "Maya Okafor";
-  const isTeacher = role === "teacher";
+  // "2 hours ago" labels stay fresh while the page is open
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
-  const updateThreads = (next) => {
-    setThreads(next);
-    onThreadsChange?.(next);
+  const run = async (fn, okMessage) => {
+    setBusy(true);
+    try {
+      const result = await fn();
+      if (okMessage) toast.push(okMessage, "success");
+      return result;
+    } catch (err) {
+      toast.push(err.message || "That didn't work", "error");
+      return undefined;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const filtered = useMemo(() => {
-    let rows = [...threads];
+    let rows = threads;
     if (filter === "unresolved") rows = rows.filter((t) => !t.resolved);
-    if (filter === "mine") rows = rows.filter((t) => t.author === userName);
+    if (filter === "mine") rows = rows.filter((t) => t.authorId === user?.id);
     if (filter === "pinned") rows = rows.filter((t) => t.pinned);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       rows = rows.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.body.toLowerCase().includes(q) ||
-          t.author.toLowerCase().includes(q),
+        (t) => t.title.toLowerCase().includes(q) || t.body.toLowerCase().includes(q) || t.author.toLowerCase().includes(q),
       );
     }
-    rows.sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return b.lastActivity - a.lastActivity;
-    });
-    return rows;
-  }, [threads, filter, search, userName]);
+    return sortThreads(rows);
+  }, [threads, filter, search, user?.id]);
 
-  const addReply = (threadId) => {
-    if (!replyDraft.trim()) return;
-    updateThreads(
-      threads.map((t) =>
-        t.id === threadId
-          ? {
-              ...t,
-              replies: [
-                ...t.replies,
-                {
-                  id: createId(),
-                  author: userName,
-                  role: isTeacher ? "teacher" : "student",
-                  body: replyDraft.trim(),
-                  time: "Just now",
-                },
-              ],
-              lastActivity: Date.now(),
-            }
-          : t,
-      ),
-    );
-    setReplyDraft("");
-    toast.push("Reply posted", "success");
+  const addReply = async (threadId) => {
+    const problem = validateReply(replyDraft);
+    if (problem) return toast.push(problem, "error");
+    const ok = await run(() => postReply(threadId, replyDraft), "Reply posted");
+    if (ok) setReplyDraft("");
   };
-
-  const toggleResolved = (threadId) =>
-    updateThreads(
-      threads.map((t) =>
-        t.id === threadId ? { ...t, resolved: !t.resolved } : t,
-      ),
-    );
+  const toggleResolved = (threadId) => {
+    const t = threads.find((x) => x.id === threadId);
+    return run(() => updateThread(threadId, { resolved: !t.resolved }));
+  };
   const togglePinned = (threadId) => {
-    if (!isTeacher) {
-      toast.push("Only teachers can pin threads", "error");
-      return;
-    }
-    updateThreads(
-      threads.map((t) => (t.id === threadId ? { ...t, pinned: !t.pinned } : t)),
-    );
+    const t = threads.find((x) => x.id === threadId);
+    return run(() => updateThread(threadId, { pinned: !t.pinned }));
   };
-  const deleteReply = (threadId, replyId) => {
-    if (!isTeacher) {
-      toast.push("Only teachers can delete replies", "error");
-      return;
-    }
-    updateThreads(
-      threads.map((t) =>
-        t.id === threadId
-          ? { ...t, replies: t.replies.filter((r) => r.id !== replyId) }
-          : t,
-      ),
+  const deleteReply = (threadId, replyId) => run(() => removeReply(threadId, replyId), "Reply removed");
+
+  const createThread = async () => {
+    const problem = validateThread({ title: newTitle, body: newBody, tag: newTag }, role);
+    if (problem) return toast.push(problem, "error");
+    const made = await run(
+      () => postThread({ classId: isTeacher ? activeClassObj.id : undefined, title: newTitle, body: newBody, tag: newTag }),
+      "Thread posted",
     );
-    toast.push("Reply removed", "info");
+    if (made) {
+      setNewOpen(false);
+      setNewTitle("");
+      setNewBody("");
+      setNewTag("Question");
+      setExpanded(made.id);
+    }
   };
 
-  const createThread = () => {
-    if (!newTitle.trim() || !newBody.trim()) {
-      toast.push("Title and body are required", "error");
-      return;
-    }
-    updateThreads([
-      {
-        id: createId(),
-        title: newTitle.trim(),
-        body: newBody.trim(),
-        author: userName,
-        role: isTeacher ? "teacher" : "student",
-        tag: newTag,
-        time: "Just now",
-        lastActivity: Date.now(),
-        pinned: false,
-        resolved: false,
-        replies: [],
-      },
-      ...threads,
-    ]);
-    setNewOpen(false);
-    setNewTitle("");
-    setNewBody("");
-    setNewTag("Question");
-    toast.push("Thread posted", "success");
-  };
-
-  const initials = (name) =>
-    name
-      .split(" ")
-      .map((x) => x[0])
-      .join("")
-      .slice(0, 2);
+  if (scopeLoading || (isLoading && (!isTeacher || activeClassObj))) return <PageLoading />;
+  if (isTeacher && !activeClassObj) {
+    return <EmptyState title="Choose a class" body="Pick a class in the sidebar to see its discussion." />;
+  }
+  if (error) return <PageError error={error} onRetry={refetch} />;
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
@@ -291,7 +261,7 @@ export const ClassDiscussion = ({
                   )}
                   <span
                     className={cn(
-                      "shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-semibold",
+                      "shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-semibold",
                       TAG_TONE[t.tag] || "bg-raised text-ink-3 border-rule-2",
                     )}
                   >
@@ -308,27 +278,18 @@ export const ClassDiscussion = ({
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <div className="hidden items-center gap-2 narrow:flex">
-                    <span
-                      className={cn(
-                        "grid size-7 shrink-0 place-items-center rounded-full font-mono text-[12px] font-bold",
-                        t.role === "teacher"
-                          ? "bg-primary-dim text-primary"
-                          : "bg-raised text-ink-2",
-                      )}
-                    >
-                      {initials(t.author)}
-                    </span>
+                    <Avatar name={t.author} src={t.authorPhotoUrl} size="sm" decorative tone={t.role === "teacher" ? "teacher" : "neutral"} />
                     <span className="flex flex-col text-[12px] leading-tight">
                       <b className="font-semibold text-ink">{t.author}</b>
-                      <span className="text-ink-3">{t.time}</span>
+                      <span className="text-ink-3">{timeAgo(t.createdAt, now)}</span>
                     </span>
                   </div>
                   {t.resolved && (
-                    <span className="rounded-full bg-success-dim px-2 py-0.5 text-[12px] font-semibold text-success">
+                    <span className="whitespace-nowrap rounded-full bg-success-dim px-2 py-0.5 text-[12px] font-semibold text-success">
                       Resolved
                     </span>
                   )}
-                  <span className="rounded-full bg-bg px-2.5 py-0.5 text-[13px] font-medium text-ink-3">
+                  <span className="whitespace-nowrap rounded-full bg-bg px-2.5 py-0.5 text-[13px] font-medium text-ink-3">
                     {t.replies.length}{" "}
                     {t.replies.length === 1 ? "reply" : "replies"}
                   </span>
@@ -345,16 +306,7 @@ export const ClassDiscussion = ({
                     <div className="flex flex-col gap-3 border-t border-rule pt-4">
                       {t.replies.map((r) => (
                         <div key={r.id} className="flex items-start gap-2.5">
-                          <span
-                            className={cn(
-                              "grid size-6 shrink-0 place-items-center rounded-full font-mono text-[9.5px] font-bold",
-                              r.role === "teacher"
-                                ? "bg-primary-dim text-primary"
-                                : "bg-raised text-ink-2",
-                            )}
-                          >
-                            {initials(r.author)}
-                          </span>
+                          <Avatar name={r.author} src={r.authorPhotoUrl} size="sm" decorative tone={r.role === "teacher" ? "teacher" : "neutral"} />
                           <div
                             className={cn(
                               "min-w-0 flex-1 rounded-[var(--radius-control)] border border-rule bg-bg px-3.5 py-2.5",
@@ -367,12 +319,12 @@ export const ClassDiscussion = ({
                                 {r.author}
                               </b>
                               {r.role === "teacher" && (
-                                <span className="rounded-full bg-primary-dim px-1.5 py-0.5 text-[12px] font-semibold text-primary">
+                                <span className="whitespace-nowrap rounded-full bg-primary-dim px-1.5 py-0.5 text-[12px] font-semibold text-primary">
                                   Teacher
                                 </span>
                               )}
                               <span className="ml-auto font-mono text-[12px] text-ink-3">
-                                {r.time}
+                                {timeAgo(r.createdAt, now)}
                               </span>
                             </div>
                             <div className="text-[13.5px] leading-relaxed text-ink-2">
@@ -382,10 +334,11 @@ export const ClassDiscussion = ({
                           {isTeacher && (
                             <button
                               onClick={() => deleteReply(t.id, r.id)}
-                              className="shrink-0 p-1 text-ink-3 transition-colors hover:text-danger"
+                              className="grid size-7 shrink-0 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
                               title="Delete reply"
+                              aria-label="Delete reply"
                             >
-                              ×
+                              <X size={14} />
                             </button>
                           )}
                         </div>
@@ -407,21 +360,33 @@ export const ClassDiscussion = ({
                       {isTeacher && (
                         <>
                           <Button
-                            onClick={() => togglePinned(t.id)} variant="ghost" size="sm"
+                            onClick={() =>
+                              setConfirm({
+                                title: "Delete this thread?",
+                                message: `“${t.title}” and its ${t.replies.length} ${t.replies.length === 1 ? "reply" : "replies"} will be removed for everyone.`,
+                                confirmLabel: "Delete thread",
+                                onConfirm: () => run(() => deleteThread(t.id), "Thread deleted"),
+                              })
+                            }
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy}
                           >
-                            <Pin size={11} /> {t.pinned ? "Unpin" : "Pin"}
+                            <Trash2 size={11} /> Delete
                           </Button>
-                          <Button
-                            onClick={() => toggleResolved(t.id)} variant="ghost" size="sm"
-                          >
-                            <Check size={11} />{" "}
-                            {t.resolved ? "Unresolve" : "Resolve"}
+                          <Button onClick={() => togglePinned(t.id)} variant="ghost" size="sm" disabled={busy}>
+                            <Pin size={11} /> {t.pinned ? "Unpin" : "Pin"}
                           </Button>
                         </>
                       )}
+                      {canResolve(role, user?.id, t) && (
+                        <Button onClick={() => toggleResolved(t.id)} variant="ghost" size="sm" disabled={busy}>
+                          <Check size={11} /> {t.resolved ? "Unresolve" : "Resolve"}
+                        </Button>
+                      )}
                       <Button
                         onClick={() => addReply(t.id)}
-                        disabled={!replyDraft.trim()} size="sm"
+                        disabled={!replyDraft.trim() || busy} size="sm"
                       >
                         Post reply
                       </Button>
@@ -446,10 +411,8 @@ export const ClassDiscussion = ({
             >
               Cancel
             </Button>
-            <Button
-              onClick={createThread}
-            >
-              Post thread
+            <Button onClick={createThread} disabled={busy}>
+              {busy ? "Posting…" : "Post thread"}
             </Button>
           </>
         }
@@ -459,12 +422,7 @@ export const ClassDiscussion = ({
             Category
           </span>
           <ChipRow>
-            {[
-              "Question",
-              "Discussion",
-              "Resource",
-              ...(isTeacher ? ["Announcement"] : []),
-            ].map((c) => (
+            {tagsFor(role).map((c) => (
               <Chip key={c} active={newTag === c} onClick={() => setNewTag(c)}>
                 {c}
               </Chip>
@@ -477,6 +435,7 @@ export const ClassDiscussion = ({
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="What do you want to talk about?"
             autoFocus
+            maxLength={140}
             className={inputClass}
           />
         </Field>
@@ -497,6 +456,18 @@ export const ClassDiscussion = ({
           </span>
         </div>
       </ModalShell>
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={confirm?.title}
+        message={confirm?.message}
+        confirmLabel={confirm?.confirmLabel}
+        onConfirm={() => {
+          const go = confirm?.onConfirm;
+          setConfirm(null);
+          go?.();
+        }}
+        onClose={() => setConfirm(null)}
+      />
     </div>
   );
 };

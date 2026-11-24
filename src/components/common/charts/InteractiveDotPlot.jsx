@@ -11,8 +11,27 @@ import {
   Cell,
 } from "recharts";
 import { cn } from "@/lib/cn";
+import { wrapLabel } from "@/lib/textWrap";
 
 const dotColor = (acc) => acc < 60 ? "var(--color-danger)" : acc < 80 ? "var(--color-warning)" : "var(--color-success)";
+
+// Topic label on the Y axis: wraps to two lines and ends in "…" instead of being
+// clipped at the chart's edge; the full name stays available as a tooltip.
+const TopicTick = ({ x, y, payload, axisWidth }) => {
+  const lines = wrapLabel(payload.value, Math.floor((axisWidth - 12) / 6.6), 2);
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <title>{payload.value}</title>
+      <text textAnchor="end" fill="var(--color-ink-2)" fontSize={12.5} fontFamily="var(--font-sans)">
+        {lines.map((line, i) => (
+          <tspan key={i} x={-6} dy={i === 0 ? (lines.length > 1 ? "-0.2em" : "0.35em") : "1.2em"}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+};
 
 // ─── Interactive dot plot ──────────────────────────────────────
 export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
@@ -22,6 +41,17 @@ export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
   const cancelHide = () => { if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; } };
   const scheduleHide = () => { cancelHide(); hideTimer.current = setTimeout(() => setHover(null), 200); };
   useEffect(() => () => cancelHide(), []);
+  // Narrower label column on phones so the plot itself keeps some width.
+  const [boxWidth, setBoxWidth] = useState(600);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    setBoxWidth(el.clientWidth);
+    const ro = new ResizeObserver(([entry]) => setBoxWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const axisWidth = boxWidth < 440 ? 104 : 144;
 
   const data = [...rows].sort((a, b) => a.accuracy - b.accuracy).map((r) => ({
     topic: r.name, accuracy: r.accuracy, affected: r.affected || Math.round((100 - r.accuracy) * 0.4), x: r.accuracy, y: r.name,
@@ -42,8 +72,8 @@ export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
           <XAxis type="number" dataKey="x" domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v) => `${v}%`}
                  axisLine={{ stroke: "var(--color-rule-2)" }} tickLine={false}
                  tick={{ fill: "var(--color-ink-3)", fontSize: 12, fontFamily: "var(--font-sans)" }} />
-          <YAxis type="category" dataKey="y" width={136} axisLine={false} tickLine={false}
-                 tick={{ fill: "var(--color-ink-2)", fontSize: 12.5, fontFamily: "var(--font-sans)" }} />
+          <YAxis type="category" dataKey="y" width={axisWidth} axisLine={false} tickLine={false} interval={0}
+                 tick={<TopicTick axisWidth={axisWidth} />} />
           <ZAxis range={[110, 110]} />
           <Tooltip content={() => null} cursor={{ stroke: "var(--color-rule-2)", strokeDasharray: "3 3" }} />
           <Scatter data={data} isAnimationActive={false}>

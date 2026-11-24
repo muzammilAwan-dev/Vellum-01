@@ -67,7 +67,7 @@ export const AttemptReview = ({ review }) => {
             {REASON_COPY[review.submitReason] && <div>{REASON_COPY[review.submitReason]}</div>}
             {review.flags > 0 && (
               <div className="text-warning">
-                {review.flags} tab {review.flags === 1 ? "switch" : "switches"} recorded
+                {review.flags} flagged {review.flags === 1 ? "event" : "events"} recorded
               </div>
             )}
           </div>
@@ -90,7 +90,7 @@ export const AttemptReview = ({ review }) => {
                 </span>
                 <span
                   className={cn(
-                    "rounded-full px-2.5 py-0.5 font-mono text-[12px] font-semibold",
+                    "whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono text-[12px] font-semibold",
                     !graded
                       ? "bg-raised text-ink-3"
                       : g.marks >= g.max

@@ -31,6 +31,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 @import "tailwindcss";
+@import "./fonts.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
@@ -364,6 +365,10 @@ html[data-theme="dark"] {
 }
 
 /* ═══ PRINT ═══ */
+.print-only { display: none; }
+/* The report sheet keeps Urdu and Arabic-script text readable (verify on real devices; see plan decision 14). */
+.report-sheet [lang="ur"] { letter-spacing: 0 !important; text-transform: none !important; line-height: 1.9; font-size: 1.15em; } /* spacing or capitals break Arabic-script joining */
+.report-sheet { font-family: var(--font-sans), "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Segoe UI", sans-serif; }
 @media print {
   html[data-theme], :root {
     color-scheme: light;
@@ -377,6 +382,11 @@ html[data-theme="dark"] {
   }
   html, body { background: #fff !important; color: #111 !important; background-image: none !important; }
   .no-print { display: none !important; }
+  .print-only { display: flex !important; }
+  .animate-page-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+  #main { overflow: visible !important; min-height: 0 !important; }
+  .report-sheet { max-width: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; background: #fff !important; }
+  .report-sheet .break-inside-avoid, .report-sheet tr { break-inside: avoid; }
   .glass, .glass-strong { background: #fff !important; backdrop-filter: none !important; }
   .shadow-xl, .shadow-2xl, [class*="shadow-"] { box-shadow: none !important; }
   @page { size: A4 portrait; margin: 18mm 15mm; }

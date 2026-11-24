@@ -1,16 +1,19 @@
 import { AlertTriangle, ArrowLeft, Eye, Lock, Save, FileEdit, CheckCircle2, Clock, Users } from "lucide-react";
+import { useState } from "react";
 import { QuestionEditor } from "./QuestionEditor";
+import { SwapQuestionModal } from "./SwapQuestionModal";
 import { Bento, MetricCard, SectionHeader } from "@/components/common";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { AutoSaveIndicator } from "@/components/take-test/AutoSaveIndicator";
 import { createId } from "@/lib/id";
-import { sumMarks, validateQuestions } from "@/lib/questions";
+import { normalizeQuestion, sumMarks, validateQuestions } from "@/lib/questions";
 import { Button } from "@/components/ui/button";
 
 // ═══════════════════════════════════════════════════════════════
 // REVIEW SCREEN
 // ═══════════════════════════════════════════════════════════════
 export const DraftReviewScreen = ({
+  subjectId,
   config,
   questions,
   onQuestionsChange,
@@ -25,10 +28,14 @@ export const DraftReviewScreen = ({
   scope = "",
   title,
   readOnly = false,
+  lockReason = "Read-only — students have already been given this test.",
+  lockSummary = "This test is no longer a draft, so it can't be edited.",
 }) => {
   const toast = useToast();
+  const [swapIndex, setSwapIndex] = useState(null);
   const totalMarks = sumMarks(questions);
   const issues = validateQuestions(questions);
+  const webCount = questions.filter((q) => q.sources?.some((x) => x.kind === "web")).length;
 
   const update = (i, next) => {
     const copy = [...questions];
@@ -75,8 +82,13 @@ export const DraftReviewScreen = ({
           <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
             {questions.length} questions · {totalMarks} marks ·{" "}
             {config.duration} min.{" "}
+            {webCount > 0 && (
+              <span className="font-medium text-warning">
+                {webCount} {webCount === 1 ? "question uses" : "questions use"} a web source — check {webCount === 1 ? "it" : "them"}.{" "}
+              </span>
+            )}
             {readOnly
-              ? "This test is no longer a draft, so it can't be edited."
+              ? lockSummary
               : "Edit any question, answer, or mark. Mark the correct option on each multiple choice so auto-grading knows what to look for."}
           </p>
         </div>
@@ -157,7 +169,7 @@ export const DraftReviewScreen = ({
         {readOnly && (
           <div className="mb-4 flex items-center gap-2 rounded-[var(--radius-control)] border border-rule-2 bg-raised px-4 py-3 text-[13px] text-ink-2">
             <Lock size={14} className="shrink-0 text-ink-3" />
-            Read-only — students have already been given this test.
+            {lockReason}
           </div>
         )}
         {!readOnly && issues.length > 0 && (
@@ -191,6 +203,7 @@ export const DraftReviewScreen = ({
                 onDelete={remove}
                 onDuplicate={duplicate}
                 onMove={move}
+                onSwap={subjectId && !readOnly ? setSwapIndex : undefined}
               />
             ))}
           </div>
@@ -229,6 +242,27 @@ export const DraftReviewScreen = ({
           )}
         </div>
       </Bento>
+
+      <SwapQuestionModal
+        open={swapIndex !== null}
+        onClose={() => setSwapIndex(null)}
+        subjectId={subjectId}
+        question={swapIndex !== null ? questions[swapIndex] : null}
+        usedBankIds={questions.map((q) => q.bankId).filter(Boolean)}
+        onPick={(b) => {
+          update(
+            swapIndex,
+            normalizeQuestion({
+              ...b,
+              id: createId(),
+              bankId: b.id,
+              sources: [{ kind: "bank", label: "Your question bank", snippet: `Swapped in — used in ${b.used} test${b.used === 1 ? "" : "s"} so far.` }],
+            }),
+          );
+          setSwapIndex(null);
+          toast.push("Question swapped", "info");
+        }}
+      />
     </div>
   );
 };

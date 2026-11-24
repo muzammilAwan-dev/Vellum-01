@@ -11,6 +11,9 @@ import {
   MessageCircle,
   BarChart3,
   Layers,
+  ShieldCheck,
+  History,
+  Building2,
 } from "lucide-react";
 
 export const NAV_BY_ROLE = {
@@ -21,8 +24,10 @@ export const NAV_BY_ROLE = {
       items: [
         { id: "users", icon: Users, label: "Accounts" },
         { id: "classes", icon: GraduationCap, label: "Classes" },
+        { id: "institution", icon: Building2, label: "Institution" },
       ],
     },
+    { label: "Oversight", items: [{ id: "audit", icon: ShieldCheck, label: "Audit" }] },
   ],
   teacher: [
     { label: null, items: [{ id: "home", icon: Home, label: "Overview" }] },
@@ -37,7 +42,7 @@ export const NAV_BY_ROLE = {
     {
       label: "Assess",
       items: [
-        { id: "drafts", icon: FileEdit, label: "Drafts" },
+        { id: "drafts", icon: FileEdit, label: "Tests" },
         { id: "live", icon: Radio, label: "Live test", live: true },
         { id: "review", icon: CheckCircle2, label: "Grade review", alert: true },
       ],
@@ -51,7 +56,10 @@ export const NAV_BY_ROLE = {
     },
     {
       label: "Insights",
-      items: [{ id: "analytics", icon: BarChart3, label: "Analytics" }],
+      items: [
+        { id: "analytics", icon: BarChart3, label: "Analytics" },
+        { id: "audit", icon: History, label: "Grading history" },
+      ],
     },
   ],
   student: [

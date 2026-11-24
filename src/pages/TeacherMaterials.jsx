@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, Minus, Sparkles, FileText } from "lucide-react";
+import { Upload, Sparkles, FileText } from "lucide-react";
 import { useNavigate } from "react-router";
-import { ACCEPTED_TYPES, MAX_FILE_BYTES, guessRoute, uploadMaterials } from "@/api/materials";
+import { ACCEPTED_TYPES, MAX_FILE_BYTES, MAX_ITEMS_PER_UPLOAD, guessRoute, uploadMaterials } from "@/api/materials";
 import { Bento, Conn, SectionHeader, Scope } from "@/components/common";
+import { MaterialsLibrary } from "@/components/teacher-materials/MaterialsLibrary";
+import { OutlineEditor } from "@/components/teacher-materials/OutlineEditor";
+import { QueuedItem } from "@/components/teacher-materials/QueuedItem";
 import { ExtractedTextReview } from "@/components/teacher-materials/ExtractedTextReview";
-import { useApp } from "@/context/AppContext";
-import { EXTRACTED_TOPICS } from "@/data/materials";
+import { useApp } from "@/context/useApp";
 import { cn } from "@/lib/cn";
 import { createId } from "@/lib/id";
 import { Button } from "@/components/ui/button";
@@ -15,8 +17,10 @@ const TeacherMaterials = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [phase, setPhase] = useState("idle");
+  const [topics, setTopics] = useState([]);
+  const [batchWarnings, setBatchWarnings] = useState([]);
   const [visibleTopics, setVisibleTopics] = useState(0);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewIds, setReviewIds] = useState(null); // ids shown in the review modal, or null = closed
   const [dragOver, setDragOver] = useState(false);
   const [errors, setErrors] = useState([]);
   const [pasteOpen, setPasteOpen] = useState(false);
@@ -46,16 +50,28 @@ const TeacherMaterials = () => {
         kind,
         route,
         label: file.name,
-        meta: `${(file.size / 1024 / 1024).toFixed(1)} MB · queued`,
+        meta: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
         file,
+        tag: "outline",
+        year: "",
+        state: "queued",
       };
     });
-    if (newItems.length) setItems((prev) => [...prev, ...newItems]);
+    const room = MAX_ITEMS_PER_UPLOAD - items.length;
+    if (newItems.length > room) {
+      rejected.push(`Up to ${MAX_ITEMS_PER_UPLOAD} items at a time — ${newItems.length - Math.max(room, 0)} not added`);
+      if (rejected.length) setErrors(rejected);
+    }
+    if (room > 0 && newItems.length) setItems((prev) => [...prev, ...newItems.slice(0, room)]);
   };
 
   const addPastedText = () => {
     const text = pasteText.trim();
     if (!text) return;
+    if (items.length >= MAX_ITEMS_PER_UPLOAD) {
+      setErrors([`Up to ${MAX_ITEMS_PER_UPLOAD} items at a time`]);
+      return;
+    }
     setItems((prev) => [
       ...prev,
       {
@@ -65,6 +81,9 @@ const TeacherMaterials = () => {
         label: "Pasted text",
         meta: `${text.length.toLocaleString()} chars · pasted text`,
         text,
+        tag: "outline",
+        year: "",
+        state: "queued",
       },
     ]);
     setPasteText("");
@@ -73,31 +92,52 @@ const TeacherMaterials = () => {
 
   const removeItem = (id) =>
     setItems((prev) => prev.filter((it) => it.id !== id));
+  const patchItem = (id, patch) =>
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+
+  // Items still to read: new ones, plus any that failed last time.
+  const pending = items.filter((it) => it.state === "queued" || it.state === "failed");
 
   const startProcessing = async () => {
-    if (!items.length || phase === "processing") return;
+    if (!pending.length || phase === "processing") return;
+    const batch = pending;
+    const ids = new Set(batch.map((it) => it.id));
     setPhase("processing");
     setErrors([]);
+    setItems((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, state: "reading", error: undefined } : it)));
     try {
-      await uploadMaterials(activeSubject.id, items);
-      setPhase("extracted");
+      const res = await uploadMaterials(activeSubject.id, batch);
+      const byId = new Map(batch.map((it, i) => [it.id, res.items[i]]));
+      setItems((prev) =>
+        prev.map((it) => {
+          const r = byId.get(it.id);
+          if (!r) return it;
+          return r.status === "extracted"
+            ? { ...it, state: "done", result: r }
+            : { ...it, state: "failed", error: r.error || "We couldn't read this item" };
+        }),
+      );
+      setBatchWarnings(res.warnings ?? []);
+      // Keep topics from earlier batches; a retry only adds to them.
+      setTopics((prev) => {
+        const seen = new Map(prev.map((t) => [t.name, t]));
+        (res.topics ?? []).forEach((t) => seen.set(t.name, t));
+        return [...seen.values()];
+      });
+      setPhase(res.items.some((r) => r.status === "extracted") || topics.length ? "extracted" : "idle");
     } catch (err) {
-      setPhase("idle");
+      setItems((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, state: "queued" } : it)));
+      setPhase(topics.length ? "extracted" : "idle");
       setErrors([err.message || "Upload failed. Try again."]);
     }
   };
 
+  // Topics appear one after another (140 ms apart); topics from an earlier batch stay visible.
   useEffect(() => {
-    if (phase !== "extracted") return;
-    setVisibleTopics(0);
-    let i = 0;
-    const t = setInterval(() => {
-      i++;
-      setVisibleTopics(i);
-      if (i >= EXTRACTED_TOPICS.length) clearInterval(t);
-    }, 140);
-    return () => clearInterval(t);
-  }, [phase]);
+    if (phase !== "extracted" || visibleTopics >= topics.length) return undefined;
+    const t = setTimeout(() => setVisibleTopics((v) => v + 1), 140);
+    return () => clearTimeout(t);
+  }, [phase, visibleTopics, topics.length]);
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
@@ -111,8 +151,8 @@ const TeacherMaterials = () => {
             Feed it <span className="text-ink-3">anything</span>
           </h1>
           <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            Paste text, drop a typed PDF, or photograph a whiteboard. Each item
-            is read the way that suits it. Past papers are optional.
+            Paste text, drop a typed PDF, or photograph a whiteboard. Tag each item
+            as a course outline or a past paper (add its year if you know it); each is read the way that suits it.
           </p>
         </div>
         <Conn state={phase === "processing" ? "polling" : "live"} />
@@ -162,14 +202,11 @@ const TeacherMaterials = () => {
               PDF · JPG · PNG · HEIC · plain text — mixed in one submission
             </p>
             <div className="relative z-10 mt-5 flex flex-wrap justify-center gap-1.5">
-              <span className="rounded-full border border-primary/25 bg-primary-soft px-2.5 py-0.5 text-[12px] font-medium text-primary">
+              <span className="whitespace-nowrap rounded-full border border-primary/25 bg-primary-soft px-2.5 py-0.5 text-[12px] font-medium text-primary">
                 Course outline
               </span>
-              <span className="rounded-full border border-rule-2 bg-surface/60 px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
+              <span className="whitespace-nowrap rounded-full border border-rule-2 bg-surface/60 px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
                 Past paper
-              </span>
-              <span className="rounded-full border border-rule-2 bg-surface/60 px-2.5 py-0.5 text-[12px] font-medium text-ink-2">
-                Reference
               </span>
             </div>
           </label>
@@ -219,77 +256,37 @@ const TeacherMaterials = () => {
               </div>
               <div className="flex flex-col divide-y divide-rule">
                 {items.map((it) => (
-                  <div
+                  <QueuedItem
                     key={it.id}
-                    className="grid grid-cols-[40px_1fr_auto_auto] items-center gap-3.5 px-5 py-3.5"
-                  >
-                    <div
-                      className={cn(
-                        "grid size-10 place-items-center rounded-[10px] font-mono text-[12px] font-bold tracking-wider",
-                        it.kind === "PDF" && "bg-danger-dim text-danger",
-                        it.kind === "IMG" && "bg-primary-dim text-primary",
-                        it.kind === "TXT" && "bg-warning-dim text-warning",
-                      )}
-                    >
-                      {it.kind}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[13.5px] font-medium text-ink">
-                        {it.label}
-                      </div>
-                      <div className="mt-0.5 truncate font-mono text-[12px] text-ink-3">
-                        {it.meta}
-                      </div>
-                      {phase === "processing" && (
-                        <div className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-rule">
-                          <div className="h-full w-1/3 animate-slide bg-primary" />
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className={cn(
-                        "shrink-0 font-mono text-[12px] font-medium",
-                        phase === "extracted"
-                          ? "text-success"
-                          : phase === "processing"
-                            ? "text-primary"
-                            : "text-ink-3",
-                      )}
-                    >
-                      {phase === "extracted"
-                        ? "✓ Extracted"
-                        : phase === "processing"
-                          ? "Reading…"
-                          : "Queued"}
-                    </div>
-                    {phase === "idle" && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(it.id)}
-                        aria-label={`Remove ${it.label}`}
-                        className="grid size-6 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
-                      >
-                        <Minus size={12} />
-                      </button>
-                    )}
-                  </div>
+                    item={it}
+                    onChange={(patch) => patchItem(it.id, patch)}
+                    onRemove={() => removeItem(it.id)}
+                  />
                 ))}
               </div>
             </Bento>
           )}
 
-          {phase === "idle" && items.length > 0 && (
+          {batchWarnings.length > 0 && (
+            <div role="status" className="rounded-[var(--radius-control)] border border-warning/30 bg-warning-dim px-4 py-2.5 text-[12.5px] font-medium text-warning">
+              {batchWarnings.join(" · ")}
+            </div>
+          )}
+
+          {phase !== "processing" && pending.length > 0 && (
             <Button
               type="button"
               onClick={startProcessing} className="w-fit"
             >
               <Sparkles size={13} />
-              Read {items.length} {items.length === 1 ? "item" : "items"} →
+              {pending.some((it) => it.state === "failed") && !pending.some((it) => it.state === "queued")
+                ? `Retry ${pending.length} failed ${pending.length === 1 ? "item" : "items"} →`
+                : `Read ${pending.length} ${pending.length === 1 ? "item" : "items"} →`}
             </Button>
           )}
         </div>
 
-        <Bento className="lg:sticky lg:top-20 lg:max-h-[calc(100vh-120px)]">
+        <Bento className="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-120px)] lg:self-start">
           <SectionHeader label="Extracted topics" />
 
           {phase === "idle" && (
@@ -316,8 +313,8 @@ const TeacherMaterials = () => {
 
           {phase === "extracted" && (
             <>
-              <div className="flex flex-col divide-y divide-rule">
-                {EXTRACTED_TOPICS.slice(0, visibleTopics).map((t, i) => (
+              <div className="flex min-h-0 flex-col divide-y divide-rule overflow-y-auto">
+                {topics.slice(0, visibleTopics).map((t, i) => (
                   <div
                     key={i}
                     className="flex items-center gap-3 py-3 font-display text-[14px] transition-opacity duration-300"
@@ -328,7 +325,7 @@ const TeacherMaterials = () => {
                     <span className="min-w-0 flex-1 truncate text-ink">
                       {t.name}
                       {t.thin && (
-                        <span className="ml-2 rounded-full bg-warning-dim px-1.5 py-0.5 text-[12px] font-semibold text-warning">
+                        <span className="ml-2 whitespace-nowrap rounded-full bg-warning-dim px-1.5 py-0.5 text-[12px] font-semibold text-warning">
                           Thin · web
                         </span>
                       )}
@@ -345,9 +342,9 @@ const TeacherMaterials = () => {
                   </div>
                 ))}
               </div>
-              <div className="mt-5 flex flex-col gap-2 border-t border-rule pt-5">
+              <div className="mt-5 flex shrink-0 flex-col gap-2 border-t border-rule pt-5">
                 <Button
-                  onClick={() => setReviewOpen(true)} variant="outline"
+                  onClick={() => setReviewIds(items.filter((it) => it.state === "done").map((it) => it.result.id))} variant="outline"
                 >
                   Review extracted text
                 </Button>
@@ -362,10 +359,18 @@ const TeacherMaterials = () => {
         </Bento>
       </div>
 
+      <MaterialsLibrary
+        subjectId={activeSubject.id}
+        subjectName={activeSubject.name}
+        onReview={(id) => setReviewIds([id])}
+      />
+      <OutlineEditor subject={activeSubject} />
+
       <ExtractedTextReview
-        open={reviewOpen}
-        onClose={() => setReviewOpen(false)}
-        onConfirm={(edits) => console.log("Saved:", edits)}
+        open={!!reviewIds}
+        onClose={() => setReviewIds(null)}
+        subjectId={activeSubject.id}
+        materialIds={reviewIds ?? []}
       />
     </div>
   );

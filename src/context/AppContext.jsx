@@ -1,11 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchMe } from "@/api/auth";
 import { clearCache } from "@/api/cache";
 import { onUnauthorized, setAuthToken } from "@/api/client";
-import { CLASS_THREADS } from "@/data/classes";
-import { LMS_COURSES, LMS_LESSONS } from "@/data/lms";
 import { usePersistentState } from "@/hooks/usePersistentState";
-import { useToast } from "@/context/ToastContext";
+import { AppCtx } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 import { useClasses, useSubjects } from "@/hooks/useSubjects";
 
 // ═══════════════════════════════════════════════════════════════
@@ -20,18 +19,9 @@ import { useClasses, useSubjects } from "@/hooks/useSubjects";
 //   · activeClassId, activeSubjectId — the teacher's current class and subject
 //
 // Transient (in-memory only):
-//   · courses, threads — local demo data mutated by the UI
 //     (tests, attempts and grading come from the API via hooks/)
 //   · modal open/close flags
 // ═══════════════════════════════════════════════════════════════
-const AppCtx = createContext(null);
-
-export const useApp = () => {
-  const ctx = useContext(AppCtx);
-  if (!ctx) throw new Error("useApp() must be used inside <AppProvider>");
-  return ctx;
-};
-
 export const AppProvider = ({ children }) => {
   const toast = useToast();
   // ── Persisted ──────────────────────────────────────────────
@@ -51,12 +41,17 @@ export const AppProvider = ({ children }) => {
     clearCache(); // nothing from this session may show up for the next user
   }, [setUser]);
 
+  // Re-reads the signed-in user (e.g. after the password change clears `mustChangePassword`).
+  const refreshUser = useCallback(() => fetchMe().then(setUser), [setUser]);
+
   // Any 401 from the API ends the session; on load, confirm the saved one
   // is still valid and refresh what we know about the user.
   // A 401 while signed in = expired session → sign out and say why. A 401
   // with no session (e.g. wrong password on /login) is the form's own error.
   const sessionRef = useRef(!!user);
-  sessionRef.current = !!user;
+  useLayoutEffect(() => {
+    sessionRef.current = !!user; // kept current after every render, never written while rendering
+  }, [user]);
   useEffect(() => {
     onUnauthorized(() => {
       if (!sessionRef.current) return;
@@ -70,9 +65,6 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   // ── Transient app data ─────────────────────────────────────
-  const [courses, setCourses]                   = useState(LMS_COURSES);
-  const [courseLessons, setCourseLessons]       = useState(LMS_LESSONS);
-  const [threads, setThreads]                   = useState(CLASS_THREADS);
 
   // ── Modal + overlay state ──────────────────────────────────
   const [cmdOpen, setCmdOpen]                   = useState(false);
@@ -114,20 +106,17 @@ export const AppProvider = ({ children }) => {
 
   const value = useMemo(
     () => ({
-      user, role, signIn, signOut,
+      user, role, signIn, signOut, refreshUser,
       classList, activeClassObj, activeClassId, setActiveClassId,
       classSubjects, activeSubject, setActiveSubjectId, scopeLoading, scopeError,
-      courses, setCourses,
-      courseLessons, setCourseLessons,
-      threads, setThreads,
       cmdOpen, setCmdOpen,
       confirmState, setConfirmState,
       mobileNavOpen, setMobileNavOpen,
     }),
     [
-      user, role, signIn, signOut, classList, activeClassObj, activeClassId,
+      user, role, signIn, signOut, refreshUser, classList, activeClassObj, activeClassId,
       classSubjects, activeSubject, scopeLoading, scopeError,
-      courses, courseLessons, threads,
+      setActiveClassId, setActiveSubjectId,
       cmdOpen, confirmState, mobileNavOpen,
     ]
   );

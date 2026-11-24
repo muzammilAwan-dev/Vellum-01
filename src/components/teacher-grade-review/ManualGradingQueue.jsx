@@ -122,7 +122,7 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                       </Td>
                       <Td className="text-right font-mono">
                         {g.flags ? (
-                          <span className="rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
+                          <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
                             {g.flags}
                           </span>
                         ) : (
@@ -155,7 +155,7 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                                   <span className="font-mono">{g.date}</span>
                                 </div>
                               </div>
-                              <span className="rounded-full border border-rule-2 bg-raised px-2.5 py-1 text-[12px] font-medium text-ink-3">
+                              <span className="whitespace-nowrap rounded-full border border-rule-2 bg-raised px-2.5 py-1 text-[12px] font-medium text-ink-3">
                                 Manual grading
                               </span>
                             </div>

@@ -6,16 +6,14 @@ import { cn } from "@/lib/cn";
 // ═══════════════════════════════════════════════════════════════
 // COMMAND PALETTE (⌘K)
 // ═══════════════════════════════════════════════════════════════
-export const CommandPalette = ({ open, onClose, items, onSelect }) => {
+// The palette body only exists while it is open, so it opens with an empty query
+// and the first item active without a reset effect.
+export const CommandPalette = (props) => (props.open ? <PaletteBody {...props} /> : null);
+
+const PaletteBody = ({ open, onClose, items, onSelect }) => {
   const ref = useModalA11y(open, onClose);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    if (!open) return;
-    setQuery("");
-    setActiveIndex(0);
-  }, [open]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -27,10 +25,6 @@ export const CommandPalette = ({ open, onClose, items, onSelect }) => {
         (it.keywords || "").toLowerCase().includes(q),
     );
   }, [items, query]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,7 +76,10 @@ export const CommandPalette = ({ open, onClose, items, onSelect }) => {
           <input
             autoFocus
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIndex(0); // a new search starts at the first match
+            }}
             placeholder="Search pages, actions…"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-3 pointer-coarse:text-[16px]"
           />

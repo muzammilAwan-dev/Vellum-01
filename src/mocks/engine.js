@@ -13,6 +13,10 @@ export const DEFAULT_SETTINGS = {
   release: "after_close", // "immediately" | "after_close"
   aiGrading: true,
   allowBack: true,
+  requireFullscreen: true, // ask for fullscreen on Begin; leaving it is flagged
+  blockCopyPaste: true, // no right-click / copy / cut / paste on the test page (attempts are flagged)
+  shuffleQuestions: false, // order decided per attempt at start (lib/randomize.js)
+  shuffleOptions: false,
 };
 export const settingsOf = (test) => ({ ...DEFAULT_SETTINGS, ...(test.settings ?? {}) });
 
@@ -73,18 +77,47 @@ export const stripQuestion = (q) => ({
   options: q.options,
 });
 
-const counts = (test) => {
+export const counts = (test) => {
   const qs = test.mode === "personal" ? (test.variants?.[0]?.questions ?? []) : (test.questionSet ?? []);
   return { questionCount: qs.length, totalMarks: sumMarks(qs) };
 };
 
-/** Teacher: the whole test. */
-export const testForTeacher = (test, now) => ({
-  ...test,
-  settings: settingsOf(test),
-  status: statusOf(test, now),
-  ...counts(test),
-});
+/** How long the fake server "takes" to write one personalized test. */
+export const GENERATION_MS_PER_TEST = 700;
+
+/**
+ * Progress of a personalized draft being written, or null when there is
+ * nothing to report (class tests, older drafts). Worked out from the clock, so
+ * it advances with no timers: { status: "running"|"done", done, total,
+ * etaSeconds?, currentStudent? }.
+ */
+export const generationOf = (test, now) => {
+  const g = test.generation;
+  if (!g) return null;
+  const elapsed = Math.max(0, now - g.startedAt);
+  const done = Math.min(g.total, Math.floor(elapsed / g.perTestMs));
+  if (done >= g.total) return { status: "done", done: g.total, total: g.total };
+  return {
+    status: "running",
+    done,
+    total: g.total,
+    etaSeconds: Math.max(1, Math.ceil(((g.total - done) * g.perTestMs - (elapsed % g.perTestMs)) / 1000)),
+    currentStudent: test.variants?.[done]?.studentName ?? null,
+  };
+};
+
+/** Teacher: the whole test. While a personalized draft is still being written, only the finished variants are included. */
+export const testForTeacher = (test, now) => {
+  const generation = generationOf(test, now);
+  return {
+    ...test,
+    ...(generation?.status === "running" ? { variants: (test.variants ?? []).slice(0, generation.done) } : {}),
+    ...(generation ? { generation } : {}),
+    settings: settingsOf(test),
+    status: statusOf(test, now),
+    ...counts(test),
+  };
+};
 
 /** Student: metadata only — no questions, variants or answer keys. */
 export const testForStudent = (test, now) => ({
@@ -108,6 +141,7 @@ export const testForStudent = (test, now) => ({
 export const attemptForStudent = (attempt, test, now) => {
   const released = test ? isReleased(test, attempt, now) : false;
   const { grades, ...rest } = attempt;
+  delete rest.shuffle; // the order map is server-side (teacher results)
   return {
     ...rest,
     questions: (attempt.questions ?? []).map(stripQuestion),
@@ -115,6 +149,32 @@ export const attemptForStudent = (attempt, test, now) => {
     totals: released ? totalsOf(attempt.questions, grades) : null,
   };
 };
+
+// ── teacher-side attempt views (roster + results) ──────────────────
+// The student's page pings the server about every 20 s (live-status, autosave,
+// flags). No sign of life for three missed pings while the attempt is still open
+// = "client silent": a clue (closed lid, lost connection, browser killed), never
+// proof of anything. The server stamps `lastSeenAt` and owns the threshold.
+export const SILENT_AFTER_MS = 60_000;
+export const lastSeenOf = (attempt) => attempt.lastSeenAt ?? attempt.submittedAt ?? attempt.startedAt;
+export const clientSilent = (attempt, test, now) =>
+  attempt.status === "in_progress" && statusOf(test, now) === "live" && now - lastSeenOf(attempt) > SILENT_AFTER_MS;
+
+/** One student's attempt as the teacher sees it. Never the answers or the key. */
+export const attemptForTeacher = (attempt, test, now) => ({
+  id: attempt.id,
+  status: attempt.status,
+  startedAt: attempt.startedAt,
+  deadline: attempt.deadline,
+  submittedAt: attempt.submittedAt,
+  submitReason: attempt.submitReason,
+  progress: { answered: answeredIn(attempt), total: (attempt.questions ?? []).length },
+  flags: attempt.flags,
+  lastSeenAt: lastSeenOf(attempt),
+  clientSilent: clientSilent(attempt, test, now),
+  // final marks only (same rule as students); `complete:false` = still being marked
+  marks: attempt.status === "submitted" ? totalsOf(attempt.questions, attempt.grades) : null,
+});
 
 export const tabSwitches = (attempt) => attempt.flags.filter((f) => f.type === "tab-switch");
 export const answeredIn = (attempt) =>

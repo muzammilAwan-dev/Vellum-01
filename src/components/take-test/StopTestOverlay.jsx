@@ -5,30 +5,23 @@ import { Button } from "@/components/ui/button";
 // ═══════════════════════════════════════════════════════════════
 // STOP TEST OVERLAY
 // ═══════════════════════════════════════════════════════════════
-export const StopTestOverlay = ({
-  visible,
+// The countdown lives in an inner component that only exists while the overlay is
+// visible, so it starts from 3 every time without a reset effect.
+const StopPanel = ({
   onForceSubmit,
   reason = "The teacher has stopped this test.",
 }) => {
   const [countdown, setCountdown] = useState(3);
 
   useEffect(() => {
-    if (!visible) return;
-    setCountdown(3);
-    const t = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          onForceSubmit?.();
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
+    const t = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
     return () => clearInterval(t);
-  }, [visible, onForceSubmit]);
+  }, []);
 
-  if (!visible) return null;
+  // At zero the answers are sent; kept out of the state updater so it runs once.
+  useEffect(() => {
+    if (countdown === 0) onForceSubmit?.();
+  }, [countdown, onForceSubmit]);
 
   return (
     <div
@@ -65,3 +58,5 @@ export const StopTestOverlay = ({
     </div>
   );
 };
+
+export const StopTestOverlay = ({ visible, ...rest }) => (visible ? <StopPanel {...rest} /> : null);

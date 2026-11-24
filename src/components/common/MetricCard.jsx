@@ -18,7 +18,6 @@ export const MetricCard = ({
   span,
   variant = "default",
   tinted = true,
-  className,
 }) => {
   const Component = onClick ? "button" : "div";
   // Tinted cards: white badge on the pastel fill. Plain cards: the badge carries the tint.
@@ -66,7 +65,7 @@ export const MetricCard = ({
           </div>
         )}
         {delta && (
-          <div className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums max-narrow:hidden", isTinted ? "bg-surface/70" : "bg-raised", DELTA_TONE[deltaTone])}>
+          <div className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums max-narrow:hidden", isTinted ? "bg-surface/70" : "bg-raised", DELTA_TONE[deltaTone])}>
             {delta}
           </div>
         )}

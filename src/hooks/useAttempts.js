@@ -30,12 +30,25 @@ export const useStudentAttempt = (testId) => {
  * Real endpoint: GET /api/tests/:id/attempts — one row per student in the
  * class: { student: { id, name, roll }, attempt: { id, status, startedAt,
  * deadline, submittedAt, submitReason, progress: { answered, total },
- * flags: [{ type, at }] } | null }. Polled every 20 s.
+ * flags: [{ type, at }], lastSeenAt, clientSilent, marks } | null }. Polled every 20 s.
  */
 export const useTestRoster = (testId) =>
   useResource(["attempts", "test", testId], {
     fetch: () => call(`/tests/${testId}/attempts`),
     refetchInterval: 20_000,
+    enabled: Boolean(testId),
+  });
+
+/**
+ * Teacher's results for one published test → { data: { test, summary, rows } }.
+ * Real endpoint: GET /api/tests/:id/results (API-CONTRACT.md). `rows` has the
+ * same shape as the roster; `summary` is computed by the server. Polled every 30 s
+ * (a live test's numbers move; an ended one's only when marks are finalised).
+ */
+export const useTestResults = (testId) =>
+  useResource(["attempts", "results", testId], {
+    fetch: () => call(`/tests/${testId}/results`),
+    refetchInterval: 30_000,
     enabled: Boolean(testId),
   });
 

@@ -1,4 +1,4 @@
-import { TOPICS } from "@/data/analytics";
+import { DEFAULT_TOPICS } from "./topics";
 import { createId } from "@/lib/id";
 import { normalizeQuestion } from "@/lib/questions";
 
@@ -141,7 +141,7 @@ const pickTemplate = (type, index) => {
 // topics are given, questions are tagged from those; otherwise they cycle
 // through every known topic.
 const topicNames = (focusTopics) =>
-  focusTopics?.length ? focusTopics : TOPICS.map((t) => t.name);
+  focusTopics?.length ? focusTopics : DEFAULT_TOPICS;
 
 /**
  * One question set from a mix, e.g. [{ type: "mcq", count: 4, marks: 2 }].
@@ -175,21 +175,30 @@ export const buildQuestions = (mix, { seed = 0, topics } = {}) => {
 };
 
 /**
- * Personalized mode (§7.6): one question set per student, each also
- * leaning on that student's recorded weak topic. Mirrors a Student Test
- * Variant document (Section 6).
+ * Personalized mode (§7.6): one question set per student, each leaning on that
+ * student's weak topic (`weak` = `weakTopicMap` from lib/analytics.js, derived
+ * from their graded tests). About a quarter of the questions are moved onto
+ * that topic. Mirrors a Student Test Variant document (Section 6).
  */
-export const buildVariants = (mix, students, { seed = 0, topics } = {}) =>
+export const buildVariants = (mix, students, { seed = 0, topics, weak = {} } = {}) =>
   students.map((student, idx) => {
     const questions = buildQuestions(mix, { seed: seed + idx * 7, topics });
-    if (student.weak && questions.length) {
-      const target =
-        questions.find((q) => q.topic !== student.weak) || questions[0];
-      target.topic = student.weak;
+    const w = weak[student.name] ?? null;
+    if (w && questions.length) {
+      const want = Math.max(1, Math.round(questions.length * 0.25));
+      let have = questions.filter((q) => q.topic === w.topic).length;
+      questions.forEach((q) => {
+        if (have < want && q.topic !== w.topic) {
+          q.topic = w.topic;
+          have += 1;
+        }
+      });
     }
     return {
       studentName: student.name,
-      weakTopic: student.weak || null,
+      weakTopic: w?.topic ?? null,
+      weakSource: w?.source ?? null,
+      weakAccuracy: w?.accuracy ?? null,
       questions,
     };
   });

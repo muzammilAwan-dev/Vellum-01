@@ -7,7 +7,7 @@ export const Chip = ({ active, onClick, children, dashed }) => (
     type="button"
     onClick={onClick}
     className={cn(
-      "rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-200",
+      "whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-200",
       dashed && "border-dashed",
       active
         ? "border-primary bg-primary text-on-primary shadow-[var(--shadow-primary)]"

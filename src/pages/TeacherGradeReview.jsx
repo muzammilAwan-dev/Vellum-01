@@ -3,7 +3,7 @@ import { CheckCircle2, AlertTriangle, Flag, Search as SearchIcon } from "lucide-
 import { Chip, FilterButton, MetricCard, PageError, PageLoading, StatusDot, TableShell, Td, Th, Scope } from "@/components/common";
 import { GradingDetailPanel } from "@/components/teacher-grade-review/GradingDetailPanel";
 import { ManualGradingQueue } from "@/components/teacher-grade-review/ManualGradingQueue";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { approveGrades, reviewGrade } from "@/api/grades";
 import { useGradeQueue } from "@/hooks/useGrading";
 import { usePersistentState } from "@/hooks/usePersistentState";
@@ -29,11 +29,11 @@ const TeacherGradeReview = () => {
     "vellum.gradeReview.filter",
     "pending",
   );
-  const [sortBy, setSortBy] = usePersistentState(
+  const [sortBy] = usePersistentState(
     "vellum.gradeReview.sortBy",
     "confidence",
   );
-  const [sortDir, setSortDir] = usePersistentState(
+  const [sortDir] = usePersistentState(
     "vellum.gradeReview.sortDir",
     "asc",
   );
@@ -132,9 +132,9 @@ const TeacherGradeReview = () => {
 
   // Saves one mark. Throws are shown as a toast and re-thrown so a panel
   // keeps its inputs instead of closing.
-  const saveMark = async (g, marks, remark, final = true) => {
+  const saveMark = async (g, marks, remark, final = true, reason = "") => {
     try {
-      await reviewGrade(g.attemptId, g.questionId, { marks, feedback: remark, final });
+      await reviewGrade(g.attemptId, g.questionId, { marks, feedback: remark, final, reason });
       toast.push(
         final ? `${g.student} graded at ${marks} / ${g.maxScore}` : "Saved as a draft",
         final ? "success" : "info",
@@ -145,10 +145,11 @@ const TeacherGradeReview = () => {
       return false;
     }
   };
-  const handleSave = async (g, score, remark, final) => {
-    if ((await saveMark(g, score, remark, final)) && final) setExpanded(null);
+  const handleSave = async (g, score, remark, final, reason) => {
+    if ((await saveMark(g, score, remark, final, reason)) && final) setExpanded(null);
   };
-  const handleSaveGrouped = (g, score, remark, final) => saveMark(g, score, remark, final);
+  const handleSaveGrouped = (g, score, remark, final, reason) =>
+    saveMark(g, score, remark, final, reason);
 
   const bulkApprove = async () => {
     setApproving(true);
@@ -411,7 +412,7 @@ const TeacherGradeReview = () => {
                         </Td>
                         <Td className="text-right font-mono">
                           {g.flags ? (
-                            <span className="rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
+                            <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
                               {g.flags}
                             </span>
                           ) : (
@@ -428,8 +429,8 @@ const TeacherGradeReview = () => {
                             <GradingDetailPanel
                               g={g}
                               onClose={() => setExpanded(null)}
-                              onSave={(score, remark, final) =>
-                                handleSave(g, score, remark, final)
+                              onSave={(score, remark, final, reason) =>
+                                handleSave(g, score, remark, final, reason)
                               }
                             />
                           </td>
@@ -485,7 +486,7 @@ const TeacherGradeReview = () => {
                         </Td>
                         <Td className="text-right font-mono">
                           {grp.totalFlags ? (
-                            <span className="rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
+                            <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
                               {grp.totalFlags}
                             </span>
                           ) : (
@@ -519,8 +520,8 @@ const TeacherGradeReview = () => {
                                     g={g}
                                     showClose={false}
                                     onClose={() => {}}
-                                    onSave={(score, remark, final) =>
-                                      handleSaveGrouped(g, score, remark, final)
+                                    onSave={(score, remark, final, reason) =>
+                                      handleSaveGrouped(g, score, remark, final, reason)
                                     }
                                   />
                                 </div>

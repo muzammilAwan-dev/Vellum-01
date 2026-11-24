@@ -1,17 +1,40 @@
 import { useState, useMemo, Fragment } from "react";
 import { typeLabel } from "@/lib/questions";
-import { Search as SearchIcon } from "lucide-react";
-import { Conn, EmptyState, MetricCard, TableShell, Td, Th, Scope } from "@/components/common";
-import { useToast } from "@/context/ToastContext";
-import { QUESTION_BANK } from "@/data/tests";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search as SearchIcon } from "lucide-react";
+import { deleteBankQuestion } from "@/api/bank";
+import { Conn, EmptyState, MetricCard, PageError, PageLoading, TableShell, Td, Th, Scope } from "@/components/common";
+import { BankQuestionModal } from "./BankQuestionModal";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
+import { useBank } from "@/hooks/useBank";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/time";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+
+const FILTER_SELECT = "h-10 min-h-0 w-auto max-w-full py-0 text-[12.5px] font-medium pointer-coarse:h-12";
+const SOURCE_OPTIONS = [
+  { value: "all", label: "Any source" },
+  { value: "past-paper", label: "Past papers" },
+  { value: "generated", label: "AI-generated" },
+  { value: "manual", label: "Added by you" },
+];
+
+const SOURCE = {
+  "past-paper": { label: "Past paper", cls: "bg-raised text-ink-3" },
+  generated: { label: "Generated", cls: "border border-success/25 bg-success-dim text-success" },
+  manual: { label: "Added by you", cls: "border border-primary/25 bg-primary-dim text-primary" },
+};
 
 // ═══════════════════════════════════════════════════════════════
 // QUESTION BANK
 // ═══════════════════════════════════════════════════════════════
-export const QuestionBank = ({ onAddToDraft }) => {
+export const QuestionBank = ({ subjectId, onAddToDraft }) => {
   const toast = useToast();
+  const { setConfirmState } = useApp();
+  const { data, isLoading, error, refetch } = useBank(subjectId);
+  const allQuestions = data ?? [];
+  const [editor, setEditor] = useState(null); // { question?, duplicate? } | null
   const [search, setSearch] = useState("");
   const [topicFilter, setTopicFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
@@ -21,12 +44,12 @@ export const QuestionBank = ({ onAddToDraft }) => {
   const [expanded, setExpanded] = useState(null);
 
   const topics = useMemo(
-    () => Array.from(new Set(QUESTION_BANK.map((q) => q.topic))),
-    [],
+    () => Array.from(new Set(allQuestions.map((q) => q.topic))),
+    [data], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const filtered = useMemo(() => {
-    let rows = [...QUESTION_BANK];
+    let rows = [...allQuestions];
     if (search.trim()) {
       const s = search.trim().toLowerCase();
       rows = rows.filter(
@@ -58,7 +81,7 @@ export const QuestionBank = ({ onAddToDraft }) => {
       return sortDir === "asc" ? va - vb : vb - va;
     });
     return rows;
-  }, [search, topicFilter, sourceFilter, sortBy, sortDir]);
+  }, [data, search, topicFilter, sourceFilter, sortBy, sortDir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSort = (key) => {
     if (sortBy === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -82,21 +105,40 @@ export const QuestionBank = ({ onAddToDraft }) => {
   };
   const handleAddSelected = () => {
     if (selected.size === 0) return;
-    toast.push(
-      `${selected.size} question${selected.size > 1 ? "s" : ""} added to draft`,
-      "success",
-    );
     onAddToDraft?.([...selected]);
-    setSelected(new Set());
   };
+  const remove = (q) =>
+    setConfirmState({
+      title: "Delete this question?",
+      message: "It leaves the bank. Tests that already used it keep their own copy.",
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        try {
+          await deleteBankQuestion(q.id);
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.delete(q.id);
+            return next;
+          });
+          toast.push("Question deleted", "info");
+        } catch (err) {
+          toast.push(err.message || "Couldn't delete the question", "error");
+        }
+      },
+    });
 
-  const SortArrow = ({ k }) =>
+  if (isLoading) return <PageLoading />;
+  if (error) return <PageError error={error} onRetry={refetch} />;
+
+  const sortArrow = (k) =>
     sortBy === k ? (
-      <span className="ml-1 text-[12px] text-primary">
-        {sortDir === "asc" ? "↑" : "↓"}
+      <span aria-hidden className="ml-1 inline-flex align-middle text-primary">
+        {sortDir === "asc" ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
       </span>
     ) : (
-      <span className="ml-1 text-[12px] opacity-40">↕</span>
+      <span aria-hidden className="ml-1 inline-flex align-middle opacity-40">
+        <ArrowUpDown size={13} />
+      </span>
     );
 
   return (
@@ -112,35 +154,38 @@ export const QuestionBank = ({ onAddToDraft }) => {
           </h1>
           <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
             Every question you've approved — from past papers and from drafts —
-            tagged and ready to reuse.
+            tagged and ready to reuse. Publishing a test adds its new questions here.
           </p>
         </div>
-        <Conn state="live" />
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setEditor({})}>Add a question</Button>
+          <Conn state="live" />
+        </div>
       </div>
 
       <div className="bento mb-10">
         <MetricCard
           label="Total questions"
-          value={QUESTION_BANK.length}
+          value={allQuestions.length}
           delta="All sources"
           deltaTone="success"
         />
         <MetricCard
           label="From past papers"
-          value={QUESTION_BANK.filter((q) => q.source === "past-paper").length}
+          value={allQuestions.filter((q) => q.source === "past-paper").length}
           delta="Directly reused"
           deltaTone="success"
         />
         <MetricCard
           label="Generated"
-          value={QUESTION_BANK.filter((q) => q.source === "generated").length}
-          delta="AI-authored"
+          value={allQuestions.filter((q) => q.source === "generated").length}
+          delta={`${allQuestions.filter((q) => q.source === "manual").length} added by you`}
           deltaTone="success"
         />
         <MetricCard
           variant="featured"
           label="Most reused"
-          value={Math.max(...QUESTION_BANK.map((q) => q.used))}
+          value={allQuestions.length ? Math.max(...allQuestions.map((q) => q.used)) : 0}
           unit="×"
           delta="High-signal question"
           deltaTone="success"
@@ -158,27 +203,20 @@ export const QuestionBank = ({ onAddToDraft }) => {
             className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
           />
         </label>
-        <select
+        <Select
+          aria-label="Filter by topic"
           value={topicFilter}
-          onChange={(e) => setTopicFilter(e.target.value)}
-          className="h-10 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3 text-[12.5px] font-medium text-ink outline-none transition-colors focus:border-primary"
-        >
-          <option value="all">All topics</option>
-          {topics.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-        <select
+          onChange={setTopicFilter}
+          options={[{ value: "all", label: "All topics" }, ...topics.map((t) => ({ value: t, label: t }))]}
+          className={FILTER_SELECT}
+        />
+        <Select
+          aria-label="Filter by source"
           value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="h-10 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3 text-[12.5px] font-medium text-ink outline-none transition-colors focus:border-primary"
-        >
-          <option value="all">Any source</option>
-          <option value="past-paper">Past papers</option>
-          <option value="generated">AI-generated</option>
-        </select>
+          onChange={setSourceFilter}
+          options={SOURCE_OPTIONS}
+          className={FILTER_SELECT}
+        />
         <div className="ml-auto font-mono text-[12px] tabular-nums text-ink-3">
           {filtered.length} shown
         </div>
@@ -219,7 +257,7 @@ export const QuestionBank = ({ onAddToDraft }) => {
                 onClick={() => toggleSort("text")}
                 className="inline-flex items-center"
               >
-                Question <SortArrow k="text" />
+                Question {sortArrow("text")}
               </button>
             </Th>
             <Th>
@@ -227,7 +265,7 @@ export const QuestionBank = ({ onAddToDraft }) => {
                 onClick={() => toggleSort("topic")}
                 className="inline-flex items-center"
               >
-                Topic <SortArrow k="topic" />
+                Topic {sortArrow("topic")}
               </button>
             </Th>
             <Th>Source</Th>
@@ -236,7 +274,7 @@ export const QuestionBank = ({ onAddToDraft }) => {
                 onClick={() => toggleSort("marks")}
                 className="inline-flex items-center"
               >
-                Marks <SortArrow k="marks" />
+                Marks {sortArrow("marks")}
               </button>
             </Th>
             <Th className="text-right">
@@ -244,7 +282,7 @@ export const QuestionBank = ({ onAddToDraft }) => {
                 onClick={() => toggleSort("used")}
                 className="inline-flex items-center"
               >
-                Used <SortArrow k="used" />
+                Used {sortArrow("used")}
               </button>
             </Th>
           </tr>
@@ -255,10 +293,15 @@ export const QuestionBank = ({ onAddToDraft }) => {
               <td colSpan={6} className="p-0">
                 <EmptyState
                   compact
-                  title="No questions found"
-                  body="Try a different search, or broaden the filters."
-                  action="Clear filters"
+                  title={allQuestions.length ? "No questions found" : "Your bank is empty"}
+                  body={
+                    allQuestions.length
+                      ? "Try a different search, or broaden the filters."
+                      : "Questions you publish in a test are saved here automatically — or add one by hand."
+                  }
+                  action={allQuestions.length ? "Clear filters" : "Add a question"}
                   onAction={() => {
+                    if (!allQuestions.length) return setEditor({});
                     setSearch("");
                     setTopicFilter("all");
                     setSourceFilter("all");
@@ -292,20 +335,18 @@ export const QuestionBank = ({ onAddToDraft }) => {
                     {q.text.length > 90 ? q.text.slice(0, 90) + "…" : q.text}
                   </Td>
                   <Td>
-                    <span className="rounded-full border border-primary/25 bg-primary-dim px-2 py-0.5 text-[12px] font-medium text-primary">
+                    <span title={q.topic} className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-primary/25 bg-primary-dim px-2 py-0.5 text-[12px] font-medium text-primary">
                       {q.topic}
                     </span>
                   </Td>
                   <Td>
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[12px] font-medium",
-                        q.source === "past-paper"
-                          ? "bg-raised text-ink-3"
-                          : "border border-success/25 bg-success-dim text-success",
+                        "whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium",
+                        (SOURCE[q.source] ?? SOURCE.generated).cls,
                       )}
                     >
-                      {q.source === "past-paper" ? "Past paper" : "Generated"}
+                      {(SOURCE[q.source] ?? SOURCE.generated).label}
                     </span>
                   </Td>
                   <Td className="text-right font-mono tabular-nums">
@@ -336,26 +377,16 @@ export const QuestionBank = ({ onAddToDraft }) => {
                             </div>
                           </div>
                           <div className="flex shrink-0 gap-2">
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toast.push(
-                                  "Question duplicated to bank",
-                                  "success",
-                                );
-                              }} variant="outline" size="sm"
-                            >
+                            <Button onClick={() => setEditor({ question: q })} variant="outline" size="sm">
+                              Edit
+                            </Button>
+                            <Button onClick={() => setEditor({ question: q, duplicate: true })} variant="outline" size="sm">
                               Duplicate
                             </Button>
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toast.push(
-                                  "Question added to draft",
-                                  "success",
-                                );
-                              }} size="sm"
-                            >
+                            <Button onClick={() => remove(q)} variant="ghost" size="sm">
+                              Delete
+                            </Button>
+                            <Button onClick={() => onAddToDraft?.([q.id])} size="sm">
                               Add to draft
                             </Button>
                           </div>
@@ -381,11 +412,23 @@ export const QuestionBank = ({ onAddToDraft }) => {
                                   {String.fromCharCode(65 + j)}
                                 </span>
                                 <span>{o}</span>
+                                {j === q.correctIndex && (
+                                  <span className="ml-auto whitespace-nowrap rounded-full bg-success-dim px-2 py-0.5 text-[11px] font-semibold text-success">
+                                    Correct
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
                         )}
 
+                        {q.expectedAnswer && (
+                          <div className="mb-4 rounded-[var(--radius-container)] border border-rule bg-sunken px-4 py-3.5">
+                            <div className="mb-1.5 text-[12px] font-semibold text-ink-3">Expected answer</div>
+                            <div className="text-[13.5px] leading-relaxed text-ink-2">{q.expectedAnswer}</div>
+                          </div>
+                        )}
+                        {q.rubric?.length > 0 && (
                         <div className="rounded-[var(--radius-container)] border border-rule bg-sunken px-4 py-3.5">
                           <div className="mb-2 text-[12px] font-semibold text-ink-3">
                             Rubric
@@ -402,9 +445,10 @@ export const QuestionBank = ({ onAddToDraft }) => {
                             </div>
                           ))}
                         </div>
+                        )}
 
                         <div className="mt-4 flex flex-wrap gap-2 font-mono text-[12px] text-ink-3">
-                          <span>Last used: {q.lastUsed}</span>
+                          <span>Last used: {q.lastUsed ? formatDateTime(q.lastUsed) : "never"}</span>
                           <span className="text-ink-3">·</span>
                           <span>
                             Used in {q.used} test{q.used !== 1 ? "s" : ""}
@@ -419,6 +463,14 @@ export const QuestionBank = ({ onAddToDraft }) => {
           })}
         </tbody>
       </TableShell>
+
+      <BankQuestionModal
+        open={!!editor}
+        onClose={() => setEditor(null)}
+        subjectId={subjectId}
+        question={editor?.question ?? null}
+        duplicate={!!editor?.duplicate}
+      />
     </div>
   );
 };

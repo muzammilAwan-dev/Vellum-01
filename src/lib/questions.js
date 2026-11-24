@@ -11,6 +11,12 @@
 //     correctIndex:   number | null       choice types only
 //     expectedAnswer: string              written types (model answer)
 //     rubric:         { label, points }[] written types
+//     sources:        { kind: "material"|"web", label, snippet, url?, retrievedAt? }[]
+//                     where the question came from. Teacher-only; "web" ones are
+//                     kept apart from (and labelled differently to) the teacher's own
+//                     material. Students never receive them.
+//     bankId:         string | null       set when the question was reused from the
+//                     question bank (so publishing counts it as a reuse, not a new one)
 //   }
 //
 // Display labels are derived from `type` (never stored on the question), so
@@ -59,6 +65,8 @@ export const normalizeQuestion = (q) => {
     correctIndex: choice ? (q.correctIndex ?? null) : null,
     expectedAnswer: q.expectedAnswer ?? "",
     rubric: Array.isArray(q.rubric) ? q.rubric.map((r) => ({ ...r })) : [],
+    sources: Array.isArray(q.sources) ? q.sources.map((s) => ({ ...s })) : [],
+    bankId: q.bankId ?? null,
   };
 };
 
@@ -94,3 +102,10 @@ export const validateQuestions = (questions = []) => {
   }
   return issues;
 };
+
+/** The mix a new test starts with (counts and marks per question type). */
+export const DEFAULT_MIX = [
+  { type: "mcq", count: 10, marks: 2 },
+  { type: "short", count: 5, marks: 4 },
+  { type: "long", count: 2, marks: 10 },
+];

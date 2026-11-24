@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { EmptyState, PageError, PageLoading } from "@/components/common";
+import { GenerationProgress } from "@/components/teacher-drafts/GenerationProgress";
 import { DraftReviewScreen } from "@/components/teacher-drafts/DraftReviewScreen";
 import { VariantsReviewScreen } from "@/components/teacher-drafts/VariantsReviewScreen";
 import { PublishTestModal } from "@/components/teacher-drafts/PublishTestModal";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { useDraftAutosave } from "@/hooks/useDraftAutosave";
+import { useGeneration } from "@/hooks/useGeneration";
 import { useTest } from "@/hooks/useTests";
 
 // Review step of the generate → review → publish flow (§7.6: "the teacher
@@ -20,6 +22,25 @@ const TeacherDraftReview = () => {
   const { data: loaded, isLoading, error, refetch } = useTest(testId);
   const { edits, change, flush, state: saveState } = useDraftAutosave(testId);
   const [publishOpen, setPublishOpen] = useState(false);
+
+  // While personalized tests are being written, follow the server's progress.
+  // When it reports "done", re-read the test so every variant appears.
+  const running = loaded?.generation?.status === "running";
+  const { data: progress } = useGeneration(testId, running);
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (running) wasRunning.current = true;
+  }, [running]);
+  useEffect(() => {
+    if (running && progress?.status === "done") refetch();
+  }, [running, progress?.status, refetch]);
+  useEffect(() => {
+    if (!running && wasRunning.current) {
+      wasRunning.current = false;
+      toast.push(`All ${loaded?.generation?.total ?? ""} personalized tests are ready — spot-check a few, then publish`, "success");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
 
   if (isLoading) return <PageLoading />;
   if (error) return <PageError error={error} onRetry={refetch} />;
@@ -36,7 +57,8 @@ const TeacherDraftReview = () => {
 
   // The server's copy until the teacher edits something; then their edits.
   const test = { ...loaded, ...edits };
-  const readOnly = loaded.status === "live" || loaded.status === "completed";
+  const generating = loaded.generation?.status === "running";
+  const readOnly = loaded.status === "live" || loaded.status === "completed" || generating;
   const scope = `${test.subject} · ${test.cls}`;
   const config = { duration: 30, mix: [], ...test.config, mode: test.mode };
   const toList = () => navigate("/teacher/drafts");
@@ -54,13 +76,21 @@ const TeacherDraftReview = () => {
     afterSaving(() =>
       navigate(`/teacher/preview/${test.id}${variant ? `?v=${variant}` : ""}`),
     );
-  const askPublish = () => afterSaving(() => setPublishOpen(true));
+  const askPublish = () => (generating ? undefined : afterSaving(() => setPublishOpen(true)));
 
   const shared = {
     config,
+    subjectId: test.subjectId,
     scope,
     title: test.title,
     readOnly,
+    ...(generating
+      ? {
+          lockReason: "Still generating — you can look through the finished tests, but not edit them yet.",
+          lockSummary: "The personalized tests are still being written, so editing is switched off for now.",
+          publishDisabled: true,
+        }
+      : {}),
     saveState: readOnly ? undefined : saveState,
     onBack: toList,
     backLabel: "← Back to drafts",
@@ -69,6 +99,11 @@ const TeacherDraftReview = () => {
 
   return (
     <>
+      {generating && (
+        <div className="mx-auto max-w-[1360px] px-5 pt-6 tablet:px-10 tablet:pt-8">
+          <GenerationProgress generation={progress?.status === "running" ? progress : loaded.generation} />
+        </div>
+      )}
       {test.mode === "personal" ? (
         <VariantsReviewScreen
           {...shared}

@@ -15,3 +15,5 @@ run against the real thing.
 Enabled unless `VITE_USE_MOCK=false`. When the real server exists: set that
 variable and delete this folder. Reset demo data with `__resetVellum()` in the
 browser console.
+
+Demo: `__tamperVellumAudit(5)` quietly edits stored audit event #5; open Admin > Audit and press "Verify now" to watch the integrity check catch it. `__resetVellum()` restores clean data.

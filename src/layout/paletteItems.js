@@ -14,10 +14,11 @@ function buildRoleItems(role, navigate) {
       nav("home", "Overview", "Home"),
       nav("materials", "Materials", "Upload"),
       nav("bank", "Question bank", "Browse"),
-      nav("drafts", "Drafts", "Manage"),
+      nav("drafts", "Tests", "Manage"),
       nav("review", "Grade review", "Pending"),
       nav("live", "Live test", "Monitor"),
       nav("analytics", "Analytics", "Class"),
+      nav("audit", "Grading history", "My marks"),
       nav("lms", "Courses", "LMS"),
       nav("chat", "Discussion", "Chat"),
     ];
@@ -36,6 +37,7 @@ function buildRoleItems(role, navigate) {
     nav("admin", "Overview", "Home"),
     nav("users", "Accounts", "Users"),
     nav("classes", "Classes", "Rosters"),
+    nav("audit", "Audit", "Grading trail"),
   ];
 }
 

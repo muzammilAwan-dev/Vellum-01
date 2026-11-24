@@ -26,6 +26,7 @@ export const QuestionEditor = ({
   onDelete,
   onDuplicate,
   onMove,
+  onSwap,
 }) => {
   const isMCQ = isChoice(q);
   const isWritten = !isMCQ;
@@ -46,7 +47,7 @@ export const QuestionEditor = ({
           <span className="text-[12.5px] font-medium text-ink-2">
             {typeLabel(q.type)}
           </span>
-          <span className="rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-medium text-primary">
+          <span title={q.topic} className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-medium text-primary">
             {q.topic}
           </span>
         </div>
@@ -66,6 +67,11 @@ export const QuestionEditor = ({
             <span className="text-[12px] text-ink-3">marks</span>
           </div>
           <div className="flex gap-0.5">
+            {onSwap && (
+              <ActionBtn onClick={() => onSwap(index)} label="Swap with a question from your bank">
+                Swap
+              </ActionBtn>
+            )}
             <ActionBtn
               onClick={() => onMove(index, -1)}
               disabled={index === 0}
@@ -146,7 +152,7 @@ export const QuestionEditor = ({
                   className="min-w-0 flex-1 bg-transparent py-1.5 text-[14px] text-ink outline-none"
                 />
                 {isCorrect && (
-                  <span className="shrink-0 rounded-full bg-success-dim px-2 py-0.5 text-[12px] font-semibold text-success">
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-success-dim px-2 py-0.5 text-[12px] font-semibold text-success">
                     Correct
                   </span>
                 )}
@@ -193,6 +199,55 @@ export const QuestionEditor = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {q.sources?.length > 0 && (
+        <div className="mt-4 border-t border-rule pt-3.5">
+          <div className="mb-2 text-[12px] font-semibold text-ink-3">Where this came from</div>
+          <div className="flex flex-col gap-2">
+            {q.sources
+              .slice()
+              .sort((a, b) => (a.kind === "web") - (b.kind === "web"))
+              .map((src, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-[var(--radius-control)] border px-3.5 py-2.5 text-[12.5px] leading-relaxed",
+                    src.kind === "web" ? "border-warning/30 bg-warning-dim/40" : "border-rule bg-bg",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        src.kind === "web" ? "bg-warning-dim text-warning" : "bg-primary-dim text-primary",
+                      )}
+                    >
+                      {src.kind === "web" ? "From the web" : src.kind === "bank" ? "From your question bank" : "From your material"}
+                    </span>
+                    {src.kind === "web" && src.url ? (
+                      <a
+                        href={src.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-ink underline decoration-rule-2 underline-offset-2 hover:text-primary"
+                      >
+                        {src.label}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-ink">{src.label}</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-ink-2">{src.snippet}</p>
+                  {src.kind === "web" && (
+                    <p className="mt-1 text-[11.5px] text-ink-3">
+                      Not your own material — check it before publishing.
+                    </p>
+                  )}
+                </div>
+              ))}
+          </div>
         </div>
       )}
     </Bento>

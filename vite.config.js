@@ -14,4 +14,7 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  // `npm run dev` opens the app in the default browser. Skip it with
+  // `npm run dev -- --no-open` or by setting BROWSER=none.
+  server: { open: true },
 });

@@ -1,7 +1,6 @@
 import { StudentAnalytics } from "@/components/student-dashboard/StudentAnalytics";
 
-// NOTE: currently renders the same view as StudentDashboard (same behaviour
-// as before the restructure). Differentiate in phase 3 against the project plan.
+// Full progress view; the dashboard (home) is the compact variant of the same data.
 const StudentProgress = () => <StudentAnalytics />;
 
 export default StudentProgress;

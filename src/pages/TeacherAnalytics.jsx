@@ -7,7 +7,7 @@ const TeacherAnalytics = () => {
   const navigate = useNavigate();
   return (
     <AnalyticsOverview
-      onStudentClick={(s) => navigate(`/teacher/analytics/${encodeURIComponent(s.roll)}`)}
+      onStudentClick={(s, order) => navigate(`/teacher/analytics/${encodeURIComponent(s.id)}`, { state: { order } })}
     />
   );
 };

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { cn } from "@/lib/cn";
 import { isChoice, typeLabel } from "@/lib/questions";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export const TestPreview = ({ title = "Test preview", forStudent, questions = []
           <span className="font-display text-[14.5px] font-semibold tracking-[-0.01em] text-ink">
             {title}
           </span>
-          <span className="rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
+          <span title={forStudent ? `Preview · ${forStudent}` : undefined} className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
             {forStudent ? `Preview · ${forStudent}` : "Preview mode"}
           </span>
         </div>

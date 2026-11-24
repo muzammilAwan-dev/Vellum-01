@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { startAttempt } from "@/api/attempts";
+import { enterFullscreen } from "@/lib/antiCheat";
+import { getSettings } from "@/lib/testSettings";
 import { EmptyState, PageError, PageLoading } from "@/components/common";
 import { SubmittedScreen } from "@/components/take-test/SubmittedScreen";
 import { TestIntro } from "@/components/take-test/TestIntro";
 import { TestRunner } from "@/components/take-test/TestRunner";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
 import { useStudentAttempt } from "@/hooks/useAttempts";
 import { useTest } from "@/hooks/useTests";
 
@@ -86,6 +88,8 @@ const TakeTest = () => {
   const begin = async () => {
     setStarting(true);
     try {
+      // Browsers only grant fullscreen straight after a click, so ask before anything async.
+      if (getSettings(test).requireFullscreen) await enterFullscreen();
       setStarted(await startAttempt(test.id));
     } catch (err) {
       toast.push(err?.message || "Couldn't start the test", "error");

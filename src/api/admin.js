@@ -8,7 +8,10 @@ import { call } from "./client";
 // ═══════════════════════════════════════════════════════════════
 const people = [["users"], ["classes"]];
 
-/** POST /api/users — { name, email, role: "teacher"|"student", classId? (student), classIds? (teacher) } */
+/**
+ * POST /api/users — { name, email, role: "teacher"|"student", classId? (student), classIds? (teacher) }
+ * → the user plus `temporaryPassword`, returned ONCE (never readable again; the account must change it at first sign-in).
+ */
 export const createUser = (body) => call("/users", { method: "POST", body, invalidates: people });
 
 /**
@@ -31,3 +34,9 @@ export const updateClass = (id, patch) =>
 /** DELETE /api/classes/:id — `409 CLASS_IN_USE` while the class has tests. Students are unassigned; its subjects go. */
 export const deleteClass = (id) =>
   call(`/classes/${id}`, { method: "DELETE", invalidates: [...people, ["subjects"]] });
+
+/** POST /api/users/:id/reset-password — admin only → { temporaryPassword } (shown once; sets mustChangePassword). `409 CANNOT_CHANGE_ADMIN`. */
+export const resetPassword = (id) => call(`/users/${id}/reset-password`, { method: "POST", invalidates: people });
+
+/** DELETE /api/users/:id/photo — admin removes anyone's photo → 204. */
+export const removeUserPhoto = (id) => call(`/users/${id}/photo`, { method: "DELETE", invalidates: [...people, ["threads"]] });

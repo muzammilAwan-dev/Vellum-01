@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { createSubject, deleteSubject, updateSubject } from "@/api/subjects";
 import { Field, LoadingButton, PageError, PageLoading, Scope, inputClass } from "@/components/common";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 
 // ═══════════════════════════════════════════════════════════════
 // SUBJECTS

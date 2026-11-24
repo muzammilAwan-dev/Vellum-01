@@ -16,7 +16,7 @@ export const DotPlot = ({ rows }) => {
         return (
           <div
             key={i}
-            className="grid grid-cols-[160px_1fr_56px] items-center gap-4 py-2"
+            className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3rem] items-center gap-2 py-2 narrow:grid-cols-[160px_minmax(0,1fr)_56px] narrow:gap-4"
           >
             <div className="truncate font-mono text-[13px] text-ink-2">
               {r.name}
@@ -44,7 +44,7 @@ export const DotPlot = ({ rows }) => {
           </div>
         );
       })}
-      <div className="mt-1.5 grid grid-cols-[160px_1fr_56px] gap-4">
+      <div className="mt-1.5 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3rem] gap-2 narrow:grid-cols-[160px_minmax(0,1fr)_56px] narrow:gap-4">
         <div />
         <div className="flex justify-between font-mono text-[12px] text-ink-3">
           <span>0%</span>

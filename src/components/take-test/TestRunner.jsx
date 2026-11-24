@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "react";
+import { Check } from "lucide-react";
 import { LIVE_STATUS_INTERVAL_MS, getLiveStatus } from "@/api/tests";
-import { logFlag, saveAnswer, submitAttempt } from "@/api/attempts";
-import { BrandMark, ConfirmDialog, Conn } from "@/components/common";
+import { saveAnswer, submitAttempt } from "@/api/attempts";
+import { ConfirmDialog, Conn, InstitutionMark } from "@/components/common";
 import { AutoSaveIndicator } from "./AutoSaveIndicator";
 import { QuestionNavigator } from "./QuestionNavigator";
 import { StopTestOverlay } from "./StopTestOverlay";
-import { useToast } from "@/context/ToastContext";
+import { useToast } from "@/context/useToast";
+import { useAntiCheat } from "@/hooks/useAntiCheat";
+import { FLAG_TYPES } from "@/lib/antiCheat";
 import { cn } from "@/lib/cn";
 import { isChoice, typeLabel } from "@/lib/questions";
 import { isAnswered } from "@/lib/attempts";
@@ -21,7 +24,9 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
   // The toast context value changes whenever a toast appears; keeping it in a
   // ref keeps `finish` (and the stop overlay's countdown) stable.
   const toastRef = useRef(toast);
-  toastRef.current = toast;
+  useLayoutEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
   const [qIndex, setQIndex] = useState(1);
   const [now, setNow] = useState(() => Date.now());
   // Answers live in this component; saving them to the server is a
@@ -29,12 +34,13 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
   // typing smooth and correct whatever the network (or a real backend) does.
   const [answers, setAnswers] = useState(() => attempt.answers ?? {});
   const answersRef = useRef(answers);
-  answersRef.current = answers;
+  useLayoutEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
   const pending = useRef(new Map());
   const [deadline, setDeadline] = useState(attempt.deadline);
-  const [tabSwitches, setTabSwitches] = useState(
-    () => attempt.flags.filter((f) => f.type === "tab-switch").length,
-  );
+  // Everything flagged so far (the server keeps the full list; this is the count).
+  const [flagCount, setFlagCount] = useState(() => attempt.flags.length);
   const [stopped, setStopped] = useState(false);
   const [conn, setConn] = useState("live");
   const [saveState, setSaveState] = useState("saved");
@@ -42,13 +48,31 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
   const finishing = useRef(false);
   const flushTimer = useRef(null);
 
-  const { allowBack } = getSettings(test);
+  const { allowBack, requireFullscreen, blockCopyPaste } = getSettings(test);
   const total = questions.length;
   const q = questions[qIndex - 1];
   const answered = new Set(
     questions.flatMap((qq, i) => (isAnswered(qq, answers[qq.id]) ? [i + 1] : [])),
   );
   const unanswered = total - answered.size;
+
+  // Anti-cheat: report tab switches, fullscreen exits, blocked copy/paste, etc.
+  // Blocked actions get a short toast so the student knows why nothing happened.
+  const { fullscreen, reenterFullscreen, finishTest } = useAntiCheat({
+    testId: test.id,
+    active: !stopped,
+    requireFullscreen,
+    blockCopyPaste,
+    onFlag: (type) => {
+      setFlagCount((n) => n + 1);
+      if (["right-click", "copy", "cut", "paste"].includes(type))
+        toastRef.current.push("Copying, pasting and the right-click menu are turned off during this test", "info", { duration: 2500 });
+      else if (type === "fullscreen-exit")
+        toastRef.current.push("You left fullscreen — this has been recorded", "info", { duration: 3500 });
+      else if (type === "tab-switch" || type === "window-blur")
+        toastRef.current.push(`${FLAG_TYPES[type].label} — this has been recorded`, "info", { duration: 3500 });
+    },
+  });
 
   const finish = useCallback(
     async (reason) => {
@@ -57,13 +81,14 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
       try {
         clearTimeout(flushTimer.current);
         const result = await submitAttempt(test.id, { reason, answers: answersRef.current });
+        finishTest(); // stop watching, hand back the screen (not reported)
         onSubmitted?.(result);
       } catch (err) {
         finishing.current = false;
         toastRef.current.push(err?.message || "Couldn't submit — try again", "error");
       }
     },
-    [test.id, onSubmitted],
+    [test.id, onSubmitted, finishTest],
   );
   const forceSubmit = useCallback(() => finish("stopped"), [finish]);
 
@@ -103,20 +128,8 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
     };
   }, [test.id, stopped]);
 
-  // Anti-cheat (soft): record each time the tab is hidden.
-  useEffect(() => {
-    if (stopped) return;
-    const onVis = () => {
-      if (document.hidden) {
-        setTabSwitches((n) => n + 1);
-        logFlag(test.id, "tab-switch").catch(() => {});
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, [test.id, stopped]);
-
-  const flush = useCallback(async () => {
+  // Named so the retry below can call itself without referring to `flush` before it exists.
+  const flush = useCallback(async function flushAnswers() {
     clearTimeout(flushTimer.current);
     const batch = [...pending.current.entries()];
     pending.current.clear();
@@ -130,7 +143,7 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
         if (!pending.current.has(qid)) pending.current.set(qid, value);
       });
       setSaveState("error");
-      flushTimer.current = setTimeout(flush, 4000);
+      flushTimer.current = setTimeout(flushAnswers, 4000);
     }
   }, [attempt.id]);
 
@@ -166,12 +179,12 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-rule bg-bg/80 px-4 py-3 backdrop-blur-xl tablet:px-8">
         <div className="flex min-w-0 items-center gap-3.5">
           <span className="grid size-7 shrink-0 place-items-center text-primary">
-            <BrandMark size={28} />
+            <InstitutionMark size={28} />
           </span>
           <div className="min-w-0 truncate font-display text-[14.5px] font-semibold tracking-[-0.01em] text-ink">
             {test.title}
           </div>
-          <span className="hidden shrink-0 rounded-full border border-rule-2 bg-surface/60 px-2 py-0.5 text-[12px] font-medium text-ink-2 narrow:inline">
+          <span className="hidden shrink-0 whitespace-nowrap rounded-full border border-rule-2 bg-surface/60 px-2 py-0.5 text-[12px] font-medium text-ink-2 narrow:inline">
             {test.subject} · {test.cls}
           </span>
         </div>
@@ -181,19 +194,19 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-2 py-1",
-                tabSwitches > 0
+                flagCount > 0
                   ? "border-danger/30 bg-danger-dim text-danger"
                   : "border-rule bg-surface/60 text-ink-3",
               )}
             >
               <span
-                className={cn("size-1.5 rounded-full", tabSwitches > 0 ? "bg-danger" : "bg-success")}
+                className={cn("size-1.5 rounded-full", flagCount > 0 ? "bg-danger" : "bg-success")}
               />
-              {tabSwitches === 0
+              {flagCount === 0
                 ? "Focus held"
-                : `${tabSwitches} tab switch${tabSwitches > 1 ? "es" : ""}`}
+                : `${flagCount} flagged event${flagCount > 1 ? "s" : ""}`}
             </span>
-            <Conn state={conn} secs={20} />
+            <Conn state={conn} />
           </div>
           <div
             className={cn(
@@ -210,6 +223,18 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
           </Button>
         </div>
       </header>
+
+      {requireFullscreen && !fullscreen && !stopped && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 border-b border-warning/30 bg-warning-dim px-4 py-2.5 text-[13px] font-medium text-warning"
+        >
+          <span>This test is meant to be taken in fullscreen (F11 works too). Leaving fullscreen is recorded.</span>
+          <Button size="sm" variant="outline" onClick={reenterFullscreen}>
+            Return to fullscreen
+          </Button>
+        </div>
+      )}
 
       <main className="flex flex-1 items-start justify-center px-4 py-10 tablet:px-8 tablet:py-14">
         <div className="w-full max-w-[680px]">
@@ -304,9 +329,9 @@ export const TestRunner = ({ test, attempt, questions, onSubmitted }) => {
             ) : (
               <span />
             )}
-            <span className="hidden text-[13px] font-medium text-ink-3 narrow:inline">
+            <span className="hidden items-center gap-1.5 text-[13px] font-medium text-ink-3 narrow:inline-flex">
               {isAnswered(q, current)
-                ? "✓ Answer recorded"
+                ? (<><Check size={14} aria-hidden /> Answer recorded</>)
                 : choice
                   ? "Select an answer"
                   : "Type your answer"}

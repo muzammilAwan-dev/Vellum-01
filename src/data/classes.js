@@ -1,36 +1,4 @@
 // ═══════════════════════════════════════════════════════════════
-// CLASS STATS
-// Per-class aggregates for the teacher dashboard. Keyed by the
-// class's `code`. Still demo numbers until the analytics phase.
-// ═══════════════════════════════════════════════════════════════
-export const CLASS_STATS = {
-  "11A": {
-    students: 32,
-    avg: 84,
-    topics: 6,
-    tests: 6,
-    belowTarget: 2,
-    pendingReviews: 8,
-  },
-  "11B": {
-    students: 30,
-    avg: 79,
-    topics: 6,
-    tests: 4,
-    belowTarget: 3,
-    pendingReviews: 12,
-  },
-  "10A": {
-    students: 28,
-    avg: 81,
-    topics: 5,
-    tests: 5,
-    belowTarget: 1,
-    pendingReviews: 4,
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════
 // CLASS DISCUSSION — seeded threads
 // ═══════════════════════════════════════════════════════════════
 export const CLASS_THREADS = [

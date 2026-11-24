@@ -1,8 +1,9 @@
 import { Clock, FileText, ListChecks } from "lucide-react";
-import { BrandMark } from "@/components/common";
+import { InstitutionMark } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/time";
-import { getSettings } from "@/lib/testSettings";
+import { getSettings, integrityRules } from "@/lib/testSettings";
+import { useNow } from "@/hooks/useNow";
 
 const Stat = ({ icon: Icon, label, value }) => (
   <div className="flex items-center gap-3 rounded-[var(--radius-container)] border border-rule bg-surface px-4 py-3">
@@ -28,17 +29,16 @@ export const TestIntro = ({
   onBegin,
   onExit,
 }) => {
+  const now = useNow(30_000);
   const resuming = attempt?.status === "in_progress";
-  const minutesLeft = resuming
-    ? Math.max(0, Math.ceil((attempt.deadline - Date.now()) / 60_000))
-    : null;
+  const minutesLeft = resuming ? Math.max(0, Math.ceil((attempt.deadline - now) / 60_000)) : null;
   const closes = test.schedule?.availableUntil;
 
   return (
     <div className="grid min-h-dvh place-items-center bg-bg px-4 py-10">
       <div className="w-full max-w-[560px]">
         <div className="mb-6 flex items-center gap-3 text-primary">
-          <BrandMark size={28} />
+          <InstitutionMark size={28} />
           <span className="text-[13px] font-medium text-ink-3">
             {test.subject} · {test.cls}
           </span>
@@ -56,7 +56,9 @@ export const TestIntro = ({
         <ul className="mb-8 list-disc space-y-1.5 pl-5 text-[14px] leading-relaxed text-ink-2">
           <li>The timer starts when you press the button and keeps running if you leave the page.</li>
           <li>Answers save automatically. The test submits itself when time runs out.</li>
-          <li>Switching tabs or windows is recorded and shown to your teacher.</li>
+          {integrityRules(test).map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
           <li>Your teacher can stop the test for everyone; your answers so far are submitted.</li>
           {!getSettings(test).allowBack && (
             <li>You can't go back to earlier questions, so answer each one before moving on.</li>

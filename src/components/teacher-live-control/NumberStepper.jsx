@@ -1,3 +1,5 @@
+import { Minus, Plus } from "lucide-react";
+
 export const NumberStepper = ({ value, onChange, min = 1, max = 60, suffix }) => {
   const clamp = (v) => Math.max(min, Math.min(max, v));
   return (
@@ -6,9 +8,10 @@ export const NumberStepper = ({ value, onChange, min = 1, max = 60, suffix }) =>
         type="button"
         onClick={() => onChange(clamp(value - 1))}
         disabled={value <= min}
-        className="grid w-9 place-items-center text-[15px] text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+        aria-label="Decrease"
+        className="grid w-9 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
       >
-        −
+        <Minus size={15} />
       </button>
       <input
         type="text"
@@ -24,9 +27,10 @@ export const NumberStepper = ({ value, onChange, min = 1, max = 60, suffix }) =>
         type="button"
         onClick={() => onChange(clamp(value + 1))}
         disabled={value >= max}
-        className="grid w-9 place-items-center text-[15px] text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+        aria-label="Increase"
+        className="grid w-9 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
       >
-        +
+        <Plus size={15} />
       </button>
       {suffix && (
         <span className="grid place-items-center border-l border-rule bg-surface px-3.5 font-mono text-[12.5px] font-medium text-ink-3">

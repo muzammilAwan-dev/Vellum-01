@@ -1,8 +1,7 @@
-import { createContext, useState, useCallback, useContext } from "react";
+import { useState, useCallback } from "react";
 import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
+import { ToastCtx } from "@/context/useToast";
 import { cn } from "@/lib/cn";
-
-const ToastCtx = createContext(null);
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
@@ -30,12 +29,6 @@ export const ToastProvider = ({ children }) => {
       <Viewport toasts={toasts} onDismiss={dismiss} />
     </ToastCtx.Provider>
   );
-};
-
-export const useToast = () => {
-  const ctx = useContext(ToastCtx);
-  if (!ctx) return { push: () => {}, dismiss: () => {}, toasts: [] };
-  return ctx;
 };
 
 const ICONS = { success: CheckCircle2, error: AlertTriangle, info: Info };

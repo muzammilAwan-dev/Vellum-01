@@ -1,356 +1,224 @@
-<div align="center">
-
-<img src="public/logo-mark.svg" alt="Vellum logo" width="72" height="72" />
-
 # Vellum
 
-**AI-assisted assessment platform for teachers, students and administrators.**
-Build tests from course material, grade against a rubric, and show every student where they stand.
+AI-assisted testing and grading for schools, colleges and universities. A teacher uploads course material, generates a test from it,
+publishes it, watches students sit it live, confirms the grades, and sees where the class and each student stand.
+Students take tests, see their results once released, work through lessons, and talk in a class discussion.
+Admins manage accounts and classes.
 
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
-![React Router](https://img.shields.io/badge/React_Router-8-CA4245?logo=reactrouter&logoColor=white)
-![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-ready-000000)
-![Status](https://img.shields.io/badge/status-frontend%20prototype-orange)
+Vellum is a final-year project (planned as a MERN stack). **This repository is the complete frontend, running on a
+fake backend that lives in the browser.** The real server is not built yet; the contract it must satisfy is written
+down in [`API-CONTRACT.md`](API-CONTRACT.md).
 
-</div>
-
----
-
-## Table of contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Tech stack](#tech-stack)
-- [Getting started](#getting-started)
-- [Scripts](#scripts)
-- [Configuration](#configuration)
-- [Project structure](#project-structure)
-- [Routes and roles](#routes-and-roles)
-- [Design system](#design-system)
-- [Using pre-made components (shadcn/ui)](#using-pre-made-components-shadcnui)
-- [Code conventions](#code-conventions)
-- [Connecting a backend](#connecting-a-backend)
-- [Deployment](#deployment)
-- [Known limitations and roadmap](#known-limitations-and-roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Overview
-
-Vellum is the React front end of an AI-powered testing and grading platform. It currently runs entirely on
-**mock data** (see [Connecting a backend](#connecting-a-backend)), so every screen can be explored without a server.
-
-Three roles share one app shell:
-
-| Role | What they do |
+| | |
 |---|---|
-| **Admin** | Manage accounts and classes, add or remove students, see system health. |
-| **Teacher** | Upload course material, review extracted topics, build and publish tests, run live sessions, review AI-graded answers, track class analytics, run courses and discussions. |
-| **Student** | Take tests, review past attempts, follow courses, join discussions, track progress. |
+| **Frontend** | All planned features are built and run end to end against the fake backend. |
+| **Backend** | Not started. Planned in [`plan.md`](plan.md) (steps B0 to B13). |
+| **Polish** | Ongoing: UI/UX review rounds driven by screenshots, then a final lint/build/a11y pass. |
 
-## Features
+## Quick start
 
-**Teacher**
-- Dashboard with class average, weak topics, students at risk, pending reviews, topic-accuracy chart, live activity feed
-- Materials upload with extracted-text and topic review; topic clusters
-- Question bank, test drafts (whole-class or per-student variants), new-test rules builder with question-mix control
-- Live test control (stop test overlay, per-student state)
-- Grade review queue with AI confidence levels and rubric verdicts
-- Analytics: class trend, per-topic accuracy, student profiles
-- Courses (lessons, video embeds, files) and class discussion threads
-
-**Student**
-- Take-test screen with question navigator, flags and autosave indicator
-- Test history, courses, discussion, progress
-
-**Admin**
-- Accounts and class management with roster editing and confirmation dialogs
-
-**Platform**
-- Light theme by default, optional dark theme
-- Command palette (`Ctrl/⌘ + K`, opened from the top-bar search), class switcher, responsive layout with mobile navigation
-- Route-level code splitting, error pages, 404 page, skip-to-content link and focus management
-- Toasts, confirm dialogs, skeletons and empty states
-
-## Screenshots
-
-> Add real screenshots here once the app is running locally, e.g. `docs/screenshots/teacher-dashboard-light.png`.
-
-<!--
-![Teacher dashboard](docs/screenshots/teacher-dashboard-light.png)
-![Take test](docs/screenshots/take-test.png)
--->
-
-## Tech stack
-
-| Area | Choice |
-|---|---|
-| UI library | React 19 |
-| Build tool | Vite 8 with `@vitejs/plugin-react` |
-| Styling | Tailwind CSS 4 via `@tailwindcss/vite` (CSS-first tokens, no `tailwind.config.js`) |
-| Routing | React Router 8 (`createBrowserRouter`, lazy routes) |
-| Components | shadcn/ui patterns (`class-variance-authority` variants) on Tailwind tokens |
-| Charts | Recharts |
-| Icons | lucide-react |
-| Fonts | Plus Jakarta Sans (UI) and Fraunces (titles), loaded from Google Fonts in `index.html` |
-| Hosting | Netlify (`netlify.toml` with SPA fallback) |
-
-### Packages
-
-**Runtime dependencies**
-
-| Package | Purpose |
-|---|---|
-| `react`, `react-dom` | UI rendering |
-| `react-router` | Routing. Since v7 it includes everything `react-router-dom` used to provide. |
-| `recharts` | Charts and the topic-accuracy dot plot |
-| `lucide-react` | Icon set |
-| `class-variance-authority` | Typed variants for `Button`, `Badge` and other `components/ui` primitives |
-| `clsx`, `tailwind-merge` | Combined in `cn()` to merge conditional class names safely |
-| `react-to-print` | Print / export of tests |
-
-**Development dependencies**
-
-| Package | Purpose |
-|---|---|
-| `vite`, `@vitejs/plugin-react` | Dev server and bundler |
-| `tailwindcss`, `@tailwindcss/vite` | Styling engine (Vite plugin) |
-| `tw-animate-css` | Animation utilities used by components added with the shadcn CLI |
-| `eslint`, `@eslint/js`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, `globals` | Linting |
-| `@types/react`, `@types/react-dom` | Editor type hints in a JavaScript project |
-
-## Getting started
-
-### Prerequisites
-
-- **Node.js 22 LTS** (the version pinned in `netlify.toml`) and npm 10+
-
-### Install and run
+Requires a current Node LTS (20.19+ or 22+) and npm.
 
 ```bash
-git clone <your-repository-url>
-cd vellum
 npm install
-npm run dev
+npm run dev          # http://localhost:5173, opens in your default browser (add -- --no-open to skip)  (dev.bat on Windows does the same)
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+Sign in from `/login`. The demo has one card per role, and **any password works**:
 
-On the sign-in screen pick a role (Admin, Teacher or Student). **Any credentials work** while the app runs on mock data.
+| Role | Email | Class |
+|---|---|---|
+| Teacher | `r.chen@westfield.edu` | 11A (Dr. R. Chen) |
+| Student | `maya.okafor@westfield.edu` | 11A |
+| Admin | `s.whitfield@westfield.edu` | all |
 
-### Troubleshooting
-
-| Symptom | Fix |
-|---|---|
-| `Failed to resolve import "class-variance-authority"` (or any other package) | Run `npm install`. If you copied only `src/` into an older project, also copy `package.json` and `package-lock.json`. |
-| Styles missing or unstyled | Make sure `vite.config.js` includes `tailwindcss()` from `@tailwindcss/vite`, and that `src/main.jsx` imports `./styles/index.css`. |
-| `@/…` imports fail | Keep both the alias in `vite.config.js` and the `paths` entry in `jsconfig.json`. |
-| Old favicon still showing | Hard-refresh; the icons are cache-busted with `?v=2` in `index.html`. |
-
-## Scripts
+Everything you do is saved in your browser (`localStorage`). To start from the seed data again, run
+`__resetVellum()` in the browser console and reload.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Start the Vite dev server with hot reload |
-| `npm run build` | Production build into `dist/` |
-| `npm run preview` | Serve the production build locally |
-| `npm run lint` | Run ESLint over the project |
+| `npm run dev` | Vite dev server |
+| `npm run build` / `npm run preview` | Production build to `dist/` / serve it locally |
+| `npm run lint` | ESLint (flat config, `react-hooks` v7 rules) |
+| `npm test` | 656 integration checks against the fake backend. One-time setup: `npm i -D esbuild` |
+| `node scripts/ui-audit.mjs` | Grep-based UI audit (focus rings, unlabeled icon buttons, hard-coded colors, ...) |
 
-## Configuration
+Environment (`.env.example`): `VITE_USE_MOCK=true` uses the fake backend (default); `false` talks to
+`VITE_API_BASE_URL`.
 
-Copy `.env.example` to `.env` to override defaults.
+## What each role can do
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `VITE_API_BASE_URL` | `/api` | Base URL of the backend API |
-| `VITE_USE_MOCK` | `true` | `true`: the fake backend in `src/mocks` answers requests in the browser. `false`: use the real backend |
+### Teacher (`/teacher`)
 
-## Project structure
+- **Overview**: class average and trend, topics below target, students at risk, pending reviews, latest discussion.
+  Numbers come from graded attempts.
+- **Subjects, Materials, Clusters, Question bank**: subjects per class with an outline; upload or paste material (text
+  is extracted and reviewable); past papers are clustered into recurring question types and can be split question by
+  question; a bank of questions with filters, add/edit/duplicate, and "add to draft".
+- **New test and draft review**: choose the mix of question types and marks, optional focus topics, and either one test
+  for the class or **one variant per student** (each leaning on that student's weak topic). Generation shows progress;
+  drafts autosave; questions can be edited and regenerated.
+- **Publish**: open now or schedule; result release (immediately or after the test closes); AI grading on/off; allow
+  going back; require fullscreen; block copy/paste; shuffle questions and/or options per student.
+- **Tests list and Live control**: one main action per test (Publish, Start now, Live view or Results) plus a "more" menu, status filters with counts, class scope; start or stop a test, extend time, a polled roster with progress per student, a
+  "no signal" clue for browsers that stopped reporting.
+- **Results** (`/teacher/results/:testId`): marks, time taken, flag count by severity and an event timeline per student.
+- **Grade review**: approve an AI-drafted mark, override it with feedback, bulk-approve high-confidence marks; a manual
+  queue for tests with AI grading off.
+- **Analytics**: class trend, topic accuracy with how many students are below target, a student table (CSV export),
+  and a profile per student (trend vs class, topic profile, recent attempts). Print to PDF.
+- **Grading history** (`/teacher/audit`): every mark you approved or changed and every test you published or edited, with your own totals; admins can see the same record.
+- **Courses** and **Discussion**: lessons (text, video, file link) per subject course with ordering and per-lesson
+  completion counts; class discussion with pin, resolve, announcements and moderation.
 
-```text
-src/
-├── main.jsx               Entry point
-├── App.jsx                Providers + RouterProvider
-├── routes/                Router config (lazy pages), auth guards, role → home path map
-├── layout/                App chrome: Layout, Sidebar, TopBar, MobileTopBar, CommandPalette, nav config
-├── pages/                 One default-exported file per route (thin: wiring + composition)
-├── components/
-│   ├── ui/                shadcn-style primitives: button, badge, input, label, separator
-│   ├── common/            Shared components (barrel in index.js) + charts/, lms/, discussion/
-│   └── <page-name>/       Components used by exactly one page (teacher-drafts/, admin-classes/, …)
-├── context/               AppContext (role, drafts, courses, modal flags), ToastContext
-├── hooks/                 useTheme, usePersistentState, useCountUp, …
-├── data/                  Mock data by domain (users, classes, analytics, tests, materials, lms)
-├── api/                   Backend client and endpoint modules
-├── lib/                   cn(), createId(), formatters
-└── styles/index.css       Design tokens and global styles
-public/                    Favicon set, web manifest, logo mark
+### Student (`/student`)
+
+- **Overview and Progress**: own average vs the class, strongest topic, score trend, topic profile. Only tests whose
+  results have been released count.
+- **Tests**: open, upcoming, finished and missed tests; intro screen that states exactly what is recorded; the test
+  runs against a server-set deadline, answers autosave, tab/focus/fullscreen/copy events are reported, a teacher Stop
+  submits everything answered so far.
+- **History**: each submitted attempt with marks, correct answers and feedback once the teacher has released them.
+- **Courses**: work through lessons, mark them done (saved), "Take the test" on a lesson while its related test is open.
+- **Discussion**: ask questions, reply, resolve your own thread.
+
+### Admin (`/admin`)
+
+Accounts (create, edit, activate/deactivate) and classes (create, edit, assign teachers, see the roster). **Audit** (read-only): every published test with its grading trail, showing for each written answer what the student wrote, the AI's draft mark, each teacher action with its reason, and the final mark; filters for changed, overridden, after-release and awaiting answers. An **Overview** shows whether the record is still intact (a "Verify now" check) and the latest activity; an **Events** view lists everything with filters and a CSV export (which is logged too). A **Teachers** view compares how each teacher marks (how many marks they change, in which direction, for which students, and after release) and lists "signals": clues, not proof. Opening a trail or a profile is itself logged.
+
+### Everyone
+
+Light and dark theme, command palette, a sidebar that collapses to a rail on desktop and becomes a drawer on phones.
+
+## How it works
+
+```
+Pages → hooks (useResource, cached reads) → api/*.js (one function per endpoint) → api/client.js
+                                                                                      │  fetch /api/*
+                                                                    src/mocks (fake backend, browser only)
 ```
 
-**Placement rules**
+- **The frontend shows what it is told.** Test status, deadlines, who may see what, grading totals and result release
+  are server rules; the client never decides them.
+- **Reads** use `hooks/useResource.js` (de-duplicated, refetched after writes, optional polling). **Writes** are small
+  functions in `src/api/*.js`; `call()` adds the bearer token, converts `_id`/ISO dates, maps errors to
+  `ApiError { status, code, message }` and refreshes the affected cache keys. A `401` signs the user out.
+- **The fake backend** (`src/mocks/`, about 70 endpoints) answers `/api/*` inside the browser with real status
+  codes, role scoping, latency and answer keys withheld until release. Only `main.jsx` imports it.
+- **Domain rules are pure functions in `src/lib/`** with no UI or mock imports: `analytics`, `antiCheat`,
+  `attempts`, `discussion`, `lms`, `questions`, `randomize`, `testSettings`, `resultsView`, `csv`, `textWrap`. The
+  real backend will port these files unchanged; the same code runs in the forms and in the fake server.
+- **Stand-ins for AI**: question generation (`mocks/generator.js`), written-answer grading (`mocks/grader.js`),
+  reading text from images and web research for topics are simulated. The interfaces match the contract; the
+  quality does not.
 
-- Import with the `@/` alias (`@/components/common`); same-folder siblings use `./`.
-- Used by **one** page → `components/<page-name>/`. Used by **two or more** → `components/common/`.
-- Pages never import other pages. Components never import from `pages/`.
-- Naming: `PascalCase.jsx` for components and pages, `useThing.js` for hooks, `camelCase.js` for utilities and data, kebab-case folders.
-- New page = file in `pages/` + lazy route in `routes/index.jsx` (+ `routes/paths.js` and `layout/navConfig.js` if it appears in the sidebar).
+### Rules worth knowing
 
-## Routes and roles
+- **Grading.** Multiple-choice and true/false are marked on submit. Written answers get an AI draft mark with a
+  confidence level (when AI grading is on) and stay *pending* until the teacher confirms. Only confirmed marks count.
+- **Audit log.** Every write that touches accounts, classes, tests, attempts or marks appends an event to a hash-chained, append-only log (fake backend only for now; admins read it under Audit, teachers see their own under Grading history). A teacher must give a reason when a mark moves 25% or more from the AI's mark, or changes after results are released.
+- **Release.** `immediately` shows a student their marks right after submitting; `after_close` waits until the test
+  ends. Analytics follow the same rule for students.
+- **Anti-cheat events** are *clues, not proof*: ten event types with severities, shown to the teacher with the time
+  they happened. A browser that sends nothing for 60 s on a live test is flagged "no signal".
+- **Shuffle** is decided once per attempt by the server (seeded by the attempt id) and stored; resuming gives the same
+  order. "All of the above" options stay last; true/false is never shuffled.
+- **Analytics.** Only attempts whose marks are all final count. A topic or student under 75% is "below target".
+  Students see only class *averages* of others, never their marks.
+- **Weak topic per variant.** A student's own lowest topic if it is under target; a student with no history inherits
+  the class's weakest topic; otherwise none. About a quarter of the variant's questions lean on it.
+- **Lessons.** Links must be `http(s)`; a related test must be a published test of the same subject; deleting a test
+  unlinks it from lessons.
 
-| Role | Routes |
+The full list, with request and response shapes, is in [`API-CONTRACT.md`](API-CONTRACT.md).
+
+## Project layout
+
+```
+src/
+  api/         one function per endpoint + client, cache, wire conversion
+  components/  common/ (shared UI), ui/ (shadcn-style primitives), then one folder per feature area
+  context/     AppProvider (session, class/subject scope), ToastProvider; useApp / useToast hooks
+  hooks/       data hooks (useResource and friends), useNow, useMediaQuery, useAntiCheat, ...
+  layout/      Layout, Sidebar, TopBar, CommandPalette
+  lib/         pure domain rules (see above)
+  mocks/       the fake backend: handlers, db + seed data, engine rules, AI stand-ins
+  pages/       one file per route
+  routes/      route table, role guards, paths
+  styles/      Tailwind v4 theme tokens (index.css)
+tests/         integration.test.js (runs in plain Node)
+scripts/       run-tests.mjs, ui-audit.mjs
+tools/smoke/   headless-browser smoke test (see below)
+docs/archive/  old contract history
+```
+
+### Routes
+
+| Role | Paths |
 |---|---|
 | Public | `/login` |
-| Admin | `/admin`, `/admin/users`, `/admin/classes` |
-| Teacher | `/teacher`, `/teacher/materials`, `/teacher/clusters`, `/teacher/bank`, `/teacher/drafts`, `/teacher/drafts/new`, `/teacher/drafts/:testId`, `/teacher/live`, `/teacher/review`, `/teacher/analytics`, `/teacher/lms`, `/teacher/chat` |
-| Student | `/student`, `/student/tests`, `/student/history`, `/student/lms`, `/student/chat`, `/student/analytics` |
-| Full-screen | `/take/:testId` (test-taking), `/teacher/preview/:testId` (student-view preview) — no app chrome |
+| Admin | `/admin`, `/admin/users`, `/admin/classes`, `/admin/classes/:classId`, `/admin/audit`, `/admin/audit/tests`, `/admin/audit/tests/:testId`, `/admin/audit/teachers`, `/admin/audit/teachers/:teacherId`, `/admin/audit/events` |
+| Teacher | `/teacher` (overview), `materials`, `clusters`, `bank`, `drafts`, `drafts/new`, `drafts/:testId`, `subjects`, `live`, `results/:testId`, `review`, `analytics`, `analytics/:studentId`, `audit`, `lms`, `chat`; `/teacher/preview/:testId` |
+| Student | `/student` (overview), `tests`, `history`, `history/:attemptId`, `lms`, `chat`, `analytics`; `/take/:testId` |
 
-Unknown URLs render a 404 page; render or lazy-load failures render a recoverable error page.
+Routes are guarded by role; subject-dependent teacher pages wait for a class and subject to be chosen in the sidebar.
 
 ## Design system
 
-Direction: **parchment written on in ink.** A navy rail, a warm paper canvas, pastel KPI cards and one gold accent.
-All tokens live in `src/styles/index.css`; components never hardcode colors.
+Direction: parchment written on in ink: a navy rail, a warm paper canvas, pastel KPI cards, one gold accent.
+Every color, radius and shadow is a token in `src/styles/index.css`; components never hard-code them.
 
-| Token | Light value | Use |
+- **Type:** Plus Jakarta Sans for UI (tabular numerals), Fraunces for titles and the wordmark; 12 px minimum.
+- **Themes:** light by default, dark opt-in. `data-theme` is applied before first paint; switching cross-fades.
+  Dark is designed separately (tonal near-black, lighter surfaces for elevation, desaturated accents), not inverted.
+- **Icons:** `lucide-react` only; no text glyphs as icons. **Motion:** CSS/Tailwind first, `motion-safe`/`motion-reduce`
+  respected, `transform`/`opacity` only.
+- **Responsive:** breakpoints `narrow` 520 px and `tablet` 860 px (plus Tailwind defaults). `pointer-coarse:` enlarges
+  touch targets; dialogs become bottom sheets on phones; wide tables scroll inside their card.
+- **Accessibility target:** WCAG 2.2 AA: contrast, visible focus (not hidden under sticky bars), 24 px minimum targets,
+  labels on icon-only buttons, status never by color alone.
+- **Components:** `components.json` is set up for the shadcn CLI. `button`, `badge` and `input` are already adapted;
+  answer *No* when the CLI offers to overwrite them.
+
+Code conventions: semantic tokens only; complete class names (never built from fragments); `cn()` to merge classes;
+repeated class lists become a component or a `cva` variant; page layout by breakpoints, reusable parts by container
+queries; every data screen has loading, empty, error-with-retry and success states.
+
+## Verification
+
+| Check | Covers | Not covered |
 |---|---|---|
-| `bg` / `surface` | paper `#F7F6F2` / white | Page / cards |
-| `ink`, `ink-2`, `ink-3` | navy-violet (15.9 / 8.5 / 5.5 : 1 on cards) | Text. `ink-4` is decorative only |
-| `primary` | indigo `#414FD2` | Actions, links, focus |
-| `gold` | `#EBBD57` | Brand dot, active-nav marker, focus ring on the rail |
-| `tint-*` | pastel fills | `MetricCard` and `<Bento variant="tinted">` |
-| `sidebar-*` | navy rail (both themes) | `layout/Sidebar.jsx` |
+| `npm test` (656 checks) | API layer, fake backend, every domain rule, permissions, cascades, the context-field guard | Rendering |
+| `tools/smoke` | Every route for admin, teacher and student at 1280 px and 390 px, rendered in headless Chromium with the real route table and fake backend; click-throughs of lessons, discussion, forms, palette, sidebar, taking a test | Layout and styling (no stylesheet is loaded); needs Playwright + Chromium and esbuild, see `tools/smoke/README.md` |
+| `node scripts/ui-audit.mjs` | Static UI smells | Anything visual |
+| `npm run lint` | Run it on your machine; the last run (47 errors) was fixed in this version | |
 
-- **Typography:** Plus Jakarta Sans for UI with tabular numerals, Fraunces for page titles and the wordmark. Minimum text size is 12px; no all-caps eyebrow labels.
-- **Themes:** light is the default and ignores the OS setting; dark is opt-in from the sidebar. `data-theme` and the `.dark`/`.light` class are applied before first paint from `index.html`. Switching cross-fades with the View Transitions API (instant for reduced-motion users or unsupported browsers).
-- **Surfaces:** `Bento` variants are `default`, `featured`, `quiet` and `tinted`. Every `Bento` accepts `span` for grid placement. Modals, toasts and the command palette use solid surfaces with elevation (no blur).
-- **Accessibility:** WCAG 2.2 AA contrast for text tokens, visible focus rings, status never conveyed by color alone, reduced-motion respected.
-- **Brand:** `BrandMark` and `Wordmark` in `components/common/BrandMark.jsx` share geometry with `public/favicon.svg`. Icon set: `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `site.webmanifest`.
+Not yet verified by the author: `npm run lint` and `vite build` on this version, and the look of every screen in a
+real browser. Those are what the screenshot review rounds are for.
 
-### Dark theme principles
+## Connecting a real backend
 
-Dark is designed separately, not inverted from light.
+1. Build the server to `API-CONTRACT.md` (planned: Express + MongoDB under `server/`; see `plan.md`).
+2. Port `src/lib/*` rules into the server's domain layer so both sides agree.
+3. Set `VITE_USE_MOCK=false` and `VITE_API_BASE_URL`, then delete `src/mocks/`.
 
-| Principle | How Vellum applies it |
-|---|---|
-| Never pure black; tonal near-black | Page `#0A0D1B` with a violet-navy tint, matching the brand hue |
-| Elevation = lighter surface, not shadow | Scale `sunken → bg → surface → raised → floating`; popovers, menus, tooltips and modals use `floating` |
-| Off-white text | `ink` is never `#fff`: 15.8:1 on cards, 5.2:1 or better for the dimmest text on the top layer |
-| Desaturated accents | Primary and status colors have about 10–15% less chroma than a naive dark pass; all hold 5.3:1 or better as text on cards |
-| Recessed inputs | Fields use `sunken` in dark, with a solid border that meets 3:1 (WCAG 1.4.11) in both themes |
-| Chart contrast | Gridlines are white at 7%; series colors are 3:1 or better against the card; tooltips sit on `floating` |
-| Status never color-only | Badges and chips always carry a text label (and icon where space allows) |
-| Native UI follows the theme | `color-scheme` is set per theme (scrollbars, date pickers, form controls) |
+Deployment: `netlify.toml` builds with `npm run build`, publishes `dist/`, and rewrites unknown paths to `index.html`
+so deep links survive a refresh.
 
-Verify any new component in both themes. Use translucent overlays (`dark:bg-white/[0.04]`) for controls that can sit on any surface.
+## Known limitations
 
-### Responsive and Android notes
+- Nothing is persisted outside the browser; clearing site data resets the demo.
+- AI generation, grading, image reading and topic research are simulated.
+- Files are not uploaded: material is pasted text, and lesson files/videos are links.
+- Lesson "modules" are a display grouping (three lessons each), not data.
+- Not built: editing your own discussion post, notifications, teacher notes on a student, a test filter on the
+  analytics page.
+- Visible layout has been reviewed from screenshots up to the last review round, not by an automated visual test.
 
-- Breakpoints: `narrow` 520px, `tablet` 860px (plus Tailwind defaults). The sidebar is a sticky rail from `tablet` up and an off-canvas drawer below it.
-- Touch: `pointer-coarse:` bumps buttons to 44–48px and form text to 16px (no zoom-on-focus); controls use `touch-action: manipulation`.
-- Dialogs become bottom sheets below `narrow` (stacked full-width actions, `dvh` heights, safe-area padding).
-- `index.html` sets `interactive-widget=resizes-content`, so the Android keyboard shrinks the layout instead of covering dialogs.
-- Tables: phones drop secondary columns and show that detail under the name; wide tables otherwise scroll inside their card.
-- Test on a real Android device or Chrome DevTools "Pixel 7" at 412px, in both themes, before merging UI changes.
+## Documents
 
-## Using pre-made components (shadcn/ui)
-
-`components.json` is configured for the shadcn CLI (JavaScript, Tailwind v4, `@/` aliases). The shadcn token names
-(`background`, `card`, `primary-foreground`, `muted-foreground`, `border`, `ring`, …) are aliased to the Vellum
-tokens in `src/styles/index.css`, so anything the CLI installs inherits both themes.
-
-```bash
-npx shadcn@latest add dialog select dropdown-menu tooltip tabs popover
-npx shadcn@latest add @shadcn/dashboard-01      # a full dashboard block to borrow from
-```
-
-- Answer **No** to overwrite prompts for `button`, `badge` and `input` (already adapted to Vellum).
-- If the CLI appends its own `:root { --background … }` block to `index.css`, delete it; the aliases already cover those names.
-- Prefer `<Button variant="outline | ghost | destructive" size="sm | icon">` over hand-written button classes.
-
-## Code conventions
-
-- Semantic tokens only (`bg-surface`, `text-ink-2`, `border-rule`); no raw hex or `oklch()` in components.
-- Complete class names only. Never build classes with template strings (`bg-${tone}`); use a lookup map.
-- Repeated class lists become a component or a `cva` variant.
-- Component-level responsiveness uses container queries; page layout uses breakpoints.
-- Pages compose `.bento` grids with `span`; avoid fixed heights.
-- Every route tree has an `errorElement`; focus moves to `<main>` after navigation.
-
-## Data layer and the fake backend
-
-The frontend only ever talks HTTP, and **no server logic lives in it**. Test
-status, who may see what, deadlines, grading and result release are all the
-backend's job; the UI shows what it is told.
-
-- **Reads** use `hooks/useResource.js` → `{ data, isLoading, error, refetch }`,
-  backed by `api/cache.js` (de-duplicated, refetched after writes, optional
-  polling). Pages show `PageLoading` / `PageError`.
-- **Writes** are small functions in `api/*.js`, one per endpoint. `call()` in
-  `api/client.js` adds the bearer token, converts `_id`→`id` and ISO dates↔ms
-  (`api/wire.js`), maps failures to `ApiError { status, code, message }` and
-  refreshes the affected cache keys. A `401` signs the user out.
-- **The contract** a backend must fulfil is `API-CONTRACT.md`.
-- **The fake backend** (`src/mocks/`) answers `/api/*` in the browser so the app
-  runs today: real requests, bearer tokens, status codes, `_id` + ISO payloads,
-  latency, role scoping, answer keys withheld until release. Nothing imports it
-  except `main.jsx`. When the real server exists: set `VITE_USE_MOCK=false`,
-  set `VITE_API_BASE_URL`, and delete `src/mocks`. Reset its data with
-  `__resetVellum()` in the console. See `src/mocks/README.md`.
-
-### What each role can do today
-
-- **Sign in** (`/login`): `POST /auth/login`; the demo adds role cards that the
-  real server ignores (the account decides).
-- **Teacher:** New test → autosaved draft review (or per-student variants) →
-  Publish (open now or schedule, release timing, AI grading on/off, allow
-  going back) → Drafts list (Start now / Stop) → **Live test**
-  (`/teacher/live?test=<id>`, roster polled every 20 s, Extend, Stop) →
-  **Grade review** (`/teacher/review`): approve, override with feedback, or
-  bulk-approve high-confidence AI marks; manual queue for AI-off tests.
-- **Student:** **Tests** (`/student/tests`) → intro → test (answers kept on the
-  page and backed up to the server; tab switches reported; countdown from the
-  server's deadline; auto-submit at 0:00; a teacher Stop reaches it via a 20 s
-  poll) → submitted → **History** (`/student/history`,
-  `/student/history/:attemptId`) once the server releases the result.
-
-## Connecting a backend
-
-1. Build the endpoints in `API-CONTRACT.md` (auth, tests, attempts, grading).
-2. Set `VITE_API_BASE_URL` to the server and `VITE_USE_MOCK=false`.
-3. Delete `src/mocks/` (and its dynamic import in `src/main.jsx`).
-
-No component or `api/*.js` module changes: they already send real requests.
-Server-side rules the UI relies on (status, release, deadlines, grading, role
-scoping, withholding answer keys) are listed in the contract.
-
-## Deployment
-
-The repository ships with a Netlify config: build command `npm run build`, publish directory `dist`, Node 22, and a
-catch-all redirect to `/index.html` so deep links survive a refresh. For any other static host, add the equivalent
-SPA fallback rule.
-
-## Known limitations and roadmap
-
-- [ ] Backend not connected (mock data only); no real authentication
-- [ ] Student test history is a placeholder table
-- [ ] `StudentProgress` renders the same view as the student dashboard
-- [ ] Some screens (draft review, variants review, test preview) are not reachable from a route yet
-- [ ] Large page components (grade review, class discussion, question bank) should be split further
-- [ ] Re-compose the admin, student and take-test layouts with the new `Bento` grid
-- [ ] Align screens with the project plan document (phase 3)
-- [ ] Add automated tests (unit and end-to-end)
-
-## Contributing
-
-1. Create a branch: `git checkout -b feat/short-description`
-2. Follow the [project structure](#project-structure) and [code conventions](#code-conventions)
-3. Run `npm run lint` and `npm run build` before opening a pull request
-4. Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`)
-
-## License
-
-No license file has been added yet. Add a `LICENSE` file before publishing the repository publicly.
+- [`plan.md`](plan.md): the living plan and hand-off: status, roadmap, per-step specs, decisions, verification gates, log.
+- [`API-CONTRACT.md`](API-CONTRACT.md): the backend contract (endpoints, shapes, rules).
+- [`docs/specs/F11-F13-audit-reports-profiles.md`](docs/specs/F11-F13-audit-reports-profiles.md): planned admin audit trail and student history / parent reports (specs per step).
+- `src/mocks/README.md`: how the fake backend is organised.
+- `tools/smoke/README.md`: the browser smoke test.

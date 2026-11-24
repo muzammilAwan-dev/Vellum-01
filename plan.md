@@ -1,318 +1,122 @@
-# Vellum — Project Plan & Handoff
-
-> **Give this file + the latest project zip to a new chat.** It is the single source of truth for what the project is, what is done, what is left, and the rules we work by. Read it fully before touching code. Update the checkboxes and the "Progress log" at the end of every working session, then hand the updated file to the next chat.
-
-Legend: `[x]` done · `[~]` partly done · `[ ]` not started · **(guide)** = required/described by the PDF guide · **(extra)** = not in the guide.
-
----
-
-## 0. Instructions for the next chat (read first)
-
-1. **Scope: frontend only.** There is no backend. Do not build or simulate server logic inside the UI. The backend will be built later by someone following `API-CONTRACT.md`.
-2. **The app only talks HTTP.** While there is no server, a *fake backend* in `src/mocks/` answers `/api/*` in the browser (on by default). It is the only place server rules live. When the real server exists: `VITE_USE_MOCK=false`, set `VITE_API_BASE_URL`, delete `src/mocks/`.
-3. **Keep the existing project and theme.** Improve it; do not restart or re-theme. Use existing components/tokens (`src/components/common`, `src/components/ui`, Tailwind v4 tokens in `src/styles/index.css`).
-4. **Token-efficient working style** (user preference): answer directly, no recap, no filler, no emojis; short bullets; return only changed files/lines in chat; deliver code as a **zip in `/mnt/user-data/outputs/`** and say what changed in a few lines. Don't ask clarifying questions for minor ambiguity — pick the sensible option and say so in one line. Do depth only when the task needs it.
-5. **Read little, grep first.** Don't `cat` big files. Use `grep -n`, `sed -n 'a,bp'`, and the file map in §2.4. Change by small `python`/`sed` edits.
-6. **Verify before delivering** (no network assumed in the sandbox — `npm install` may be impossible): bundle-check the whole app with esbuild, run the integration test (§12), and check for unused imports. State plainly that the app was **not** run in a browser unless it was.
-7. **One phase per chat.** Pick the next phase from §7, finish it, update this file, stop.
-8. **Respect the contract.** Any new endpoint/field is added to `API-CONTRACT.md` *and* to the fake server (`src/mocks/handlers.js`) in the same change, with realistic status codes and error codes.
-
-**Recommended next step** (user's stated intent): the user is going to run the app with the mock data to review the look and feel. Next work is either (a) a **UI/UX improvement pass** on specific screens the user names (§8), or (b) **Phase 5** (§7). Ask the user which, in one line, if not told.
-
----
-
-## 1. What the project is
-
-**Vellum** — the frontend of an *AI-Powered Testing & Grading Platform* (a MERN-stack final-year project, described in `AI_Testing_Platform_MERN_Full_Guide_Final.pdf`). Three roles — **Admin, Teacher, Student**.
-
-Core loop (guide §1): teacher adds a course outline (required) and optional past papers (text / PDF / image) → system extracts text, finds recurring topics, optionally tops up thin topics with web research → teacher sets rules (mode same-for-class or personalized, question mix, marks, duration, optional focus topics + free-text instruction) → AI generates the test → teacher reviews/edits and publishes (scheduled window or manual start/stop) → students take it with a timer and anti-cheat → objective questions graded instantly, written answers AI-graded against a rubric with teacher override/remarks (or AI off → manual queue) → per-student weakness report + class analytics + print/PDF export → weak spots feed the next test generation → full test history for students → separate lightweight LMS (courses/lessons/progress).
-
-Guide's own advice (§9.2): finish the **Core** list first, then **Enhanced**. Human review of every AI output is a deliberate design decision.
-
----
-
-## 2. Snapshot
-
-### 2.1 Stack
-React 19 + Vite 8 + Tailwind CSS v4 (`@tailwindcss/vite`), `react-router` 8 (data router, lazy pages), `recharts`, `lucide-react`, `class-variance-authority` / `clsx` / `tailwind-merge`, `react-to-print` (installed, **unused**). ESLint 10. Deploy file present: `netlify.toml` (guide says Vercel — see §11).
-
-### 2.2 Run
-```
-npm install
-npm run dev        # or dev.bat on Windows
-```
-No `.env` needed. `.env.example`: `VITE_USE_MOCK` (default on), `VITE_API_BASE_URL` (default `/api`; a full URL also works).
-
-### 2.3 Demo accounts (fake backend)
-Login screen shows role cards (mock only; a real server ignores them):
-- **Teacher** `r.chen@westfield.edu` → Dr. R. Chen
-- **Student** `maya.okafor@westfield.edu` → Maya Okafor (class 11A)
-- **Admin** `s.whitfield@westfield.edu`
-Any password works in mock mode. Other students: Sofia Lindqvist, Priya Nair, Jayden Park, Adrian Bell, Tomás Reyes (rolls 11A-xx).
-
-Seed tests (teacher): *Wave Optics — Quiz 2* (live, manual), *Newton's Laws — Unit Test* (draft), *Thermodynamics — Mid-term* (personalized, scheduled tomorrow), *Bonding & Structure* (draft), *Kinematics — Quiz* (completed; 6 submissions with AI-graded written answers of varied quality → fills the grade queue). Maya also has a finished attempt on Kinematics.
-Data persists in `localStorage` (`vellum.mockdb.v2`). Reset: run `__resetVellum()` in the browser console. Two tabs (teacher + student) work together; a teacher Stop reaches an open student test within ~20 s.
-
-### 2.4 File map (what to open for what)
-```
-API-CONTRACT.md                 the backend contract (auth, reads, tests, attempts, grading); older sections below it are stale
-README.md                       how it's wired, per-role flows, env, connecting a backend
-src/main.jsx                    boots; dynamically imports the fake server when mock is on
-src/api/client.js               request(), call() (token, wire conversion, ApiError, invalidates), USE_MOCK, onUnauthorized
-src/api/wire.js                 _id→id, ISO↔ms conversion (fromWire/toWire)
-src/api/cache.js                tiny query cache (dedupe, invalidate, refetch)
-src/api/{auth,tests,attempts,grades,materials}.js   one function per endpoint (real-only, no mock branches)
-src/hooks/useResource.js        the single read hook → { data, isLoading, error, refetch }, optional refetchInterval
-src/hooks/{useTests,useAttempts,useGrading}.js      screen data hooks (+ useDraftAutosave.js)
-src/lib/questions.js            THE question schema + validation (mcq|truefalse|short|long|numerical)
-src/lib/{testSettings,attempts,time,id,cn,...}.js   UI-only helpers (no server rules)
-src/context/AppContext.jsx      user/role session, active class, UI state; signIn/signOut; static demo lists still here
-src/routes/{index.jsx,guards.jsx,paths.js}          router (paths.js = legacy view-id → path adapter)
-src/layout/                     Layout, Sidebar, TopBar, navConfig.js (nav + some hardcoded badge counts), CommandPalette
-src/pages/*                     route pages (thin; they compose components)
-src/components/{common,ui}/     shared primitives (Bento, MetricCard, TableShell, StatusDot, EmptyState, PageLoading/PageError, ModalShell…)
-src/components/teacher-*/ student-*/ take-test/ admin-*/   feature components
-src/mocks/                      FAKE BACKEND (dev only): server.js (fetch interceptor), handlers.js (endpoints), engine.js (server rules), db.js (+seed), generator.js, grader.js, README.md
-src/data/                       static demo data still used by screens with no API yet (see §5, §7)
-```
-
----
-
-## 3. Architecture rules (decisions already made — keep them)
-
-- **Data seams.** Reads → `useResource` hooks returning `{ data, isLoading, error, refetch }` over `api/cache.js`. Writes → `api/*.js` functions using `call()` with `invalidates` keys. Pages render `PageLoading` / `PageError` / `EmptyState`. Components never import `src/mocks`.
-- **No server logic in the UI.** Status (`draft|scheduled|live|completed`), deadlines, who can see what, grading, totals, result release, answer-key withholding are **server** responsibilities (implemented in `src/mocks/engine.js` + `handlers.js`). The UI displays them. UI-only validation (`validateQuestions`) is for UX; server must re-validate.
-- **Wire conventions.** Server sends `_id` + ISO-8601 strings; `api/wire.js` converts to `id` + ms timestamps (time fields: `createdAt updatedAt publishedAt stoppedAt startedAt deadline submittedAt availableFrom availableUntil at reviewedAt closesAt`). The fake server emits the real format so adapters are exercised.
-- **Errors.** `ApiError { status, code, message }`. Codes the UI reacts to: `NOT_RELEASED`(403) `NOT_OPEN`(409) `NO_VARIANT`(403) `INVALID_MARKS`(400) `NOT_EDITABLE`(409) `INVALID_QUESTIONS`(400). 401 → `onUnauthorized` → sign out.
-- **Student independence.** A student's attempt carries its own `questions` snapshot (no answer key); the test page needs nothing from the teacher's test. Answers live in component state and are backed up (`PUT /attempts/:id/answers`); the **full answer map is sent on submit**. Deadline is server-fixed; extension arrives via the 20 s `live-status` poll (`deadline`).
-- **Grades.** Per question: `{ marks, max, status: final|ai_draft|pending, source: auto|ai|teacher, confidence 0–1, rubric[], feedback, aiMarks }`. Students only ever see `final` marks. AI marks are drafts until the teacher approves/overrides. `settings.aiGrading=false` → written answers `pending` (manual queue).
-- **Test settings** (set in the publish dialog, stored on the test): `release: immediately|after_close`, `aiGrading`, `allowBack` (default on). Add new options here (anti-cheat flags go here).
-- **Question schema** is single-sourced in `src/lib/questions.js`; labels are derived from `type`, never stored.
-- **Autosave** in the draft editor: local edits + debounced `PUT` (`useDraftAutosave`), flush before preview/publish.
-- **Polling, not websockets** (guide §7.7): tests list 30 s, student attempts 30 s, live roster 20 s, grade queue 30 s, student live-status 20 s.
-
----
-
-## 4. Progress log — DONE
-
-### Original UI (before this plan)
-- [x] Whole UI shell: theme (light/dark), layout, sidebar/top bar/command palette, 25+ screens across 3 roles, charts, empty/skeleton components, route-based lazy loading, error boundary.
-
-### Step 1 — generate → review → publish
-- [x] Unified question schema (`lib/questions.js`) + `validateQuestions`.
-- [x] New-test rules screen now creates a real draft (title field, focus topics capped at 4 and empty by default, mix/marks/duration/mode/difficulty/instruction).
-- [x] Draft review page `/teacher/drafts/:testId` (class mode) and per-student variants review (personalized mode); read-only for live/completed; validation banner.
-- [x] Student-view preview `/teacher/preview/:testId` (variant via `?v=`).
-- [x] Publish dialog: open now or schedule window (validated against duration), question validation across all variants.
-- [x] Drafts list: Open / Publish / Regenerate / Duplicate / Delete / Start now / Stop; dashboard "Recent drafts" and sidebar Drafts badge from real data.
-- [x] Fixed: `TakeTest` lost answers (single `selected` state); stop-overlay countdown that never fired.
-
-### Step 2 — student side
-- [x] Student **Tests** page (`/student/tests`): Open now / Upcoming / Submitted / Closed.
-- [x] `/take/:testId` flow: intro (start is a deliberate click) → runner → submitted screen; old `/take` redirects.
-- [x] Runner: one question at a time, per-question answers kept, server-fixed countdown, auto-submit at 0:00, confirm-before-submit dialog with unanswered count, tab-switch recording (count shown), 20 s stop poll + overlay, back-navigation setting.
-
-### Step 3 — teacher live control + settings
-- [x] **Live Control** (`/teacher/live?test=<id>`): picker for multiple live tests; roster with progress/status/flags; Extend (adds time to window + open attempts); confirmed Stop; ended state.
-- [x] Publish settings: result release timing, AI grading on/off (stored; consumed by grading), allow going back (enforced in runner + intro text).
-
-### Step 4 — grading + history
-- [x] Server-side-style grading pipeline (in the fake backend): objective final at submit; written answers AI-draft with confidence/rubric/feedback, or `pending` when AI is off.
-- [x] **Grade review** (`/teacher/review`): real queue, approve / override / save-as-draft with feedback, bulk-approve high-confidence, flags shown, manual queue tab; removed fake "Release results" / "Download PDF" buttons.
-- [x] **Student history** list + per-attempt review page (`/student/history/:attemptId`) with answers, correct answers, marks, feedback; locked state when not released.
-
-### Backend-readiness refactor (the "don't pretend" pass)
-- [x] `api/client.js`: bearer token, `ApiError`, 401 handler, query params, FormData-safe; `call()` with wire conversion + cache invalidation.
-- [x] `api/wire.js` adapters; `api/cache.js` query cache; `useResource` hook (+ polling).
-- [x] All `api/*.js` modules real-only; all server rules moved to `src/mocks/` (fake server intercepting `fetch`, emitting `_id`+ISO, status codes, latency, role scoping, release gating, key withholding, server-side expiry sweep).
-- [x] Auth wired: `POST /auth/login`, `GET /auth/me`, `signIn/signOut`, 401 → sign out; role cards on Login only in mock mode.
-- [x] Draft editor autosave; live roster from server rows; student test page driven by server's `released`/`totals`.
-- [x] `API-CONTRACT.md` updated (conventions, reads, tests, attempts, grading, auth); README data-layer section rewritten.
-- [x] Fake-server base-URL bug fixed (works with `/api` or a full URL).
-- [x] Integration test through the fake server (67 checks) + cache/wire coverage — see §12.
-
----
-
-## 5. Status against the PDF guide
-
-| Guide § | Feature | Status | Notes |
-|---|---|---|---|
-| 7.1 | Auth & roles | **[x]** | Login/token/`me`/401 done. Role guards + session-expired toast (5.1); admin creates/deactivates/removes accounts via the API (5.3). **Missing:** password reset / real email. |
-| 7.2 | Class & subject management | **[x]** | Admin Classes/Users/Dashboard still **static demo data**. Subject entity (5.2); admin accounts, classes, rosters and KPIs on the API (5.3). **Missing:** assigning teachers to specific subjects, academic year. |
-| 7.3 | Multi-format material upload & extraction | **[~]** | Multi-file + paste UI, type/size validation, real `POST /subjects/:id/materials` through the client. **Missing:** per-item tag (outline vs past paper) + year (items currently have no tag), render the upload *response* (still shows static `EXTRACTED_TOPICS`), extracted-text review bound to real items, saved-materials library (list/delete/re-extract), per-file status/extraction-route from server. |
-| 7.4 | Recurring question detection | **[ ]** | Clusters page is static; no API; no "no past papers" empty state; no question-split review/fix UI; no similarity-threshold control (stretch). |
-| 7.5 | Web research for thin outlines | **[ ]** | Only a decorative "Thin · web" badge. Need "enrich with current info" toggle, labeled web snippets (supplementary, separate from teacher's material), per-topic control. |
-| 7.6 | Test generation, personalization, review | **[x]** UI / **[~]** | Done end-to-end (see §4). **Missing:** question bank wiring (save approved questions, manual add/edit, quick swap, "Add to draft" currently a stub), the "queued 2 of 32" banner on the rules screen is still fake, show per-student weak topics driving personalization (variants screen shows `weakTopic`). |
-| 7.7 | Scheduling & manual control | **[x]** | Schedule window, start now, stop, extend, polling. |
-| 7.8 | Test-taking interface (anti-cheat) | **[~]** | Done: timer, auto-submit, one-at-a-time, tab-switch log, allow-back setting. **Missing:** fullscreen request + exit logging, window blur, block right-click/copy/paste/cut, randomized question & option order per student (server or client), `beforeunload` warning, flag timeline on teacher side. |
-| 7.9 | Auto-grading & human override | **[x]** | See §4. **Missing:** filter grade queue by test, re-run AI grading, rubric editing. |
-| 7.10 | Analytics, test history, PDF export | **[~]** | History list + review done. **Missing:** weakness profile built from graded attempts (Student Profile tally per topic), class analytics from API, student dashboard/progress from API (`/student` and `/student/analytics` are the same component with static data), teacher per-test results page, drill-down routes, **PDF export via `react-to-print`** + `.no-print` on chrome (today `window.print()`; `.no-print` defined but unused so sidebar/top bar would print). |
-| 7.11 | Lightweight LMS | **[~]** | Teacher/student LMS screens work on static data. **Missing:** API, course↔Subject link, lesson reorder, persisted progress, "take related test" button, teacher progress from real data. |
-| — | Class Discussion **(extra)** | **[~]** | Static; not in the guide. Keep optional; don't prioritize over Core. |
-| §11 | Pitfall: human review of AI output | **[x]** | Enforced: AI marks are drafts until teacher approves; teacher reviews drafted tests before publish. |
-
----
-
-## 6. Original gap analysis (from the first review) → current status
-
-Critical defects found at the start:
-- [x] Generate → review → publish loop disconnected (orphan screens) → fixed.
-- [x] `TakeTest` kept one answer only → fixed (answers per question, server deadline, auto-submit, submit confirm, submitted screen).
-- [x] No student test picker/start screen → fixed.
-- [~] Anti-cheat only tab-visibility count → now recorded with timestamps; **fullscreen/blur/copy-paste/right-click/shuffle still open** (Phase 7).
-- [x] "No way back" vs navigator → made a per-test setting (`allowBack`, default on).
-- [x] Question shape inconsistent (`"MCQ"`/`"mcq"`/`"Short answer"`) → single schema.
-- [~] State-driven navigation → `drafts/:testId`, `preview/:testId`, `take/:testId`, `history/:attemptId` done; **still state-driven:** admin class detail (`/admin/classes/detail`), teacher student profile (`selectedStudent` in context).
-
-Missing screens/components list:
-- [ ] Subject entity + switcher + CRUD · [x] Publish dialog · [x] Student attempt review · [ ] Teacher per-test results page with flag timeline · [ ] Materials tag/year + library + real extraction results · [ ] Split reviewer + clusters empty state · [ ] Web-enrich toggle + snippets · [ ] Question bank: save approved, manual add/edit/swap, "Add to draft" · [ ] Student dashboard (available tests, latest result, weak topics, LMS progress) · [ ] `react-to-print` export + `.no-print` · [ ] LMS ↔ Subject link, reorder, "take related test" · [ ] Role guard · [x] Stateful data layer (replaced by fake server).
-
-Cleanup list:
-- [~] Rewrite stale `API-CONTRACT.md` (new sections done; older "Collections (Section 6)"/legacy parts remain — audit and prune).
-- [~] Hardcoded nav badge counts (Drafts and student Tests are real; **users, classes, materials, discussion, courses still hardcoded** in `navConfig.js`); admin KPIs hardcoded; some static mock dates are in the future.
-- [ ] Remove/verify unused files: `DotPlot`, `separator`, `useDebouncedValue`, `useDocumentTitle`, `SearchHint`, `bootstrapTheme`, `formatters`, empty `New Text Document.txt` (re-run the unused-file check; some may have become used).
-- [ ] Merge duplicate `NumberStepper` (teacher-new-test + teacher-live-control).
-- [ ] Remove `routes/paths.js` legacy adapter once all pages use `useNavigate`.
-- [x] Focus topics capped at 4 (guide: 2–4) and no longer prefilled.
-- [ ] Add `vercel.json` SPA rewrite (guide targets Vercel; repo has `netlify.toml`).
-- [ ] Small bug: `AppContext` classList entries define a duplicate `short` key — verify and fix.
-
----
-
-## 7. Remaining work — phased plan
-
-Each phase: build the UI **and** the contract + fake-server endpoints it needs, then update docs/tests. Order is a recommendation; the user may reorder.
-
-### Phase 5 — Structure & access (guide 7.1, 7.2)
-- [x] **5.1 Role guards**: `RequireRole` (`src/routes/guards.jsx`) on `/admin`, `/teacher`, `/student` groups, `/take/:testId` (student) and `/teacher/preview/:testId` (teacher); wrong role → own home. 401 while signed in → sign out + "session expired" toast (`AppContext`); 401 with no session (bad login) stays the form's error. Not unit-tested (React-only; no test runner until Phase 10).
-- [x] **5.2 Subjects**: `GET /classes`, `GET/POST/PUT/DELETE /subjects` (contract + fake handlers, mock db v3 with classes/subjects, `subjectId` on tests); `AppContext` classes, active class and subject from the API; `SubjectSwitcher` under the class switcher; `<Scope />` and `SubjectGate` replace every hardcoded "Physics"/`"physics-11a"`; teacher Subjects page (`/teacher/subjects`: add, rename, outline, delete). Drafts list filters by class + subject. Admin pages still on static `CLASSES` (5.3). Student pages show the class name only (they span all subjects).
-- [x] **5.3 Admin on API**: `GET/POST/PUT/DELETE /users`, `POST/PUT/DELETE /classes`, `GET /classes/:id/roster` (contract + fake handlers; mock db v4 persists users); `useUsers`/`useClassRoster` hooks + `api/admin.js`; Accounts, Classes, Class detail and Admin overview read and write the API (no static data, survive refresh); deactivate/reactivate accounts; student add = new account or enroll an unassigned student (roll assigned by server); `/admin/classes/:classId` route (so 5.4's admin half is done); dead `openClass`/`rosterOverrides`/modal flags removed from context; admin nav badges live. Fake data note: 11A keeps its 6 demo students (their tests are seeded by name); 11B has 6, 10A has 5; Dr. Chen now teaches 11A + 11B only (as the admin data always said).
-- [x] **5.4 Id routes**: `/admin/classes/:classId` (5.3) and `/teacher/analytics/:studentId` (`TeacherStudentProfile`; the id is the student's roll number until analytics uses real data; unknown id → error state). `openClass` is gone from context; `selectedStudent` was page-local and is now the URL.
-- [x] **5.5 Nav badges**: every hardcoded number removed. Live: admin Accounts/Classes, teacher Drafts and Grade review (pending items, from `useGradeQueue`), student Tests (open) and Courses (course count). Materials, Question bank and Discussion show no badge (no unread/count model yet).
-- *Done when:* a student can't open `/teacher/*`; no "Physics" literal in feature code; admin screens work after a refresh; deep links work.
-
-### Phase 6 — Materials, clusters, question bank (guide 7.3–7.5, 7.6 bank)
-- [ ] **6.1 Upload tagging**: per-item tag (outline / past paper) + year; fix FormData fields; per-file status from the response (extraction route direct/vision/ocr, warnings); progress/error per file.
-- [ ] **6.2 Real extraction review**: bind `ExtractedTextReview` to server text per item; edit + confirm saves (`PUT /materials/:id`).
-- [ ] **6.3 Materials library**: list/delete/re-extract; outline view/edit (`GET/DELETE /subjects/:id/materials`).
-- [ ] **6.4 Clusters**: API-driven; empty state when no past papers; question-split review/fix UI; cluster detail; (stretch) similarity threshold.
-- [ ] **6.5 Web research**: "enrich with current info" toggle in rules; thin-topic indicator from server; show labeled web snippets separately from teacher material.
-- [ ] **6.6 Question bank**: API; save approved questions on publish; manual add/edit; quick swap in review; "Add to draft" carries selection into the new-test flow.
-- [ ] **6.7** Replace the fake "queued 2 of 32" banner with server-reported generation progress for personalized mode.
-- *Done when:* uploading a mix of files tags correctly and the library shows them after refresh; clusters page handles zero past papers.
-
-### Phase 7 — Anti-cheat & test integrity (guide 7.8)
-- [ ] **7.1 `useAntiCheat` hook** used by `TestRunner`: fullscreen request (on the intro "Begin" click) + exit logging; window blur; block right-click, copy/paste/cut on the test page; `beforeunload` warning; every event → `POST /tests/:id/flag` with a type.
-- [ ] **7.2 Publish-dialog toggles** stored in `test.settings` (e.g. `requireFullscreen`, `blockCopyPaste`, `shuffleQuestions`, `shuffleOptions`); intro screen lists active rules.
-- [ ] **7.3 Randomization** of question and option order per student (decide server vs client; server preferred so grading maps correctly — contract change).
-- [ ] **7.4 Teacher per-test results page** (class results + per-student flag timeline), linked from Live ended state and Drafts completed rows.
-- *Done when:* each flag type appears with timestamps on the teacher side; settings change what the student can do.
-
-### Phase 8 — Analytics, profiles, export (guide 7.10)
-- [ ] **8.1 Weakness profile** per student/subject/topic (correct vs attempted) from graded attempts: `GET /students/:id/profile`; feeds personalized generation (server) and the student/teacher dashboards.
-- [ ] **8.2 Student dashboard/progress** from API (available tests, latest result, weak topics → "practice"), separate `/student` and `/student/analytics`.
-- [ ] **8.3 Teacher analytics** from API: class weak topics, student drill-down by route, history of any student in class (`GET /students/:id/history`).
-- [ ] **8.4 PDF/print export** with `react-to-print` on: weakness report, student result review, reviewed test; add `.no-print` to chrome; check print stylesheet (`media="print"`).
-- [ ] **8.5** Show which weak topics shaped each personalized variant (variants screen) from server data.
-
-### Phase 9 — LMS (guide 7.11)
-- [ ] Courses/lessons/progress API; course↔Subject link; lesson reorder; student progress persisted; teacher progress view; "take related test" CTA from a lesson.
-- [ ] Decide fate of Class Discussion (**extra**): keep static, wire to API, or hide.
-
-### Phase 10 — Quality, polish, release
-- [ ] Add a real test runner (**vitest**) and port the integration test (§12); add tests for `wire`, `cache`, `questions`, `useDraftAutosave`.
-- [ ] Run `npm run lint` and fix; remove dead code (§6 cleanup); merge duplicate components.
-- [ ] Accessibility pass (focus management in dialogs, aria-live on timers/saves, keyboard nav in runner).
-- [ ] Responsive pass (mobile test taking, tables on small screens).
-- [ ] `vercel.json`; confirm production build with `VITE_USE_MOCK=false` excludes `src/mocks`.
-- [ ] Prune/rewrite remaining stale parts of `API-CONTRACT.md` and `README.md`; consider a short `docs/backend-handoff.md` for the backend dev.
-
----
-
-## 8. UI/UX improvement backlog (the user will review the app with mock data)
-
-The user is running the mock app to judge layout and flow. When they send screen-specific feedback, work through this checklist per screen:
-
-- States: loading skeleton, empty, error + retry, success toast — all present and consistent?
-- Long content: long test/student names, 10+ tests, 50+ students, long answers (truncation, wrapping).
-- Mobile (≤ 640 px) and tablet; sticky bars; table → card fallbacks; test runner on phone.
-- Dark/light parity; contrast; focus rings; keyboard-only use of dialogs and the runner.
-- Copy: plain, consistent terms (Test vs Quiz, Published vs Live, "Results after close").
-- Flows to review end-to-end: **(T)** new test → review → publish → live → grade; **(S)** tests → take → submitted → history review; **(A)** admin accounts/classes.
-- Known rough edges to look at: rules screen "queued" banner (fake), grade-review breadcrumb hardcoded, student dashboard/progress identical, discussion/LMS/admin on static data, nav badges hardcoded, sidebar avatar initials from name, drafts list actions hidden on small screens.
-
----
-
-## 9. Backend handoff (what the future backend must do)
-
-Full detail in `API-CONTRACT.md`. Summary of the **rules the UI relies on** (all currently implemented in `src/mocks/engine.js` + `handlers.js` — treat them as the reference implementation):
-- Auth: `POST /auth/login`, `GET /auth/me`, Bearer token, 401 on invalid; role decides access; 403 otherwise.
-- `GET /tests`: teacher → own tests with questions; student → published tests of their class **without questions**; both with server-computed `status`, complete `settings`, `questionCount`, `totalMarks`.
-- Test lifecycle: generate (LLM) → `PUT` edits only while draft/scheduled (409 `NOT_EDITABLE` otherwise) → publish (validate questions, store settings/schedule) → start-now / stop-now / extend → status derived from schedule + manual stop.
-- Attempts: `GET /tests/:id/start` snapshots the student's questions (no answer key), fixes the deadline (`min(start+duration, availableUntil)`); autosave `PUT`; flags `POST`; submit `POST` with the **full answers map**, idempotent; server auto-submits past-deadline attempts and attempts whose test ended (grace ≈ 30 s).
-- Grading at submit: objective final; written → AI draft (marks, confidence, rubric verdicts, feedback) or `pending` if `aiGrading=false`. Teacher `PATCH /grades/:attemptId/:questionId`, bulk `POST /grading/approve`.
-- Release: `immediately` after submit, or `after_close`. Students receive `released` + `totals` (final marks only); `GET /attempts/:id/review` → 403 `NOT_RELEASED` until released and **only then** includes correct answers/model answers.
-- Never send answer keys (`correctIndex`, `expectedAnswer`, `rubric`) to students before release. Never send other students' answers to a student.
-- Still-to-be-specified endpoints (added as phases land): subjects, classes, users, materials library/extraction/clusters/web research, question bank, student profile/history, analytics, LMS.
-
----
-
-## 10. Known issues, caveats, unverified
-
-- **The app has never been opened in a browser by the assistant.** Verified only by: whole-app esbuild bundle (no unresolved imports/syntax errors), an unused-import scan, and Node integration tests of the API/cache/wire/fake-server logic. React rendering, `useResource` inside React, layout and CSS are unverified — expect small runtime/UI bugs; fix as the user reports them.
-- ESLint and `vite build` were not run (no `node_modules` in the sandbox).
-- The AI grader and test generator are **stand-ins** in `src/mocks` (keyword matching; template questions). They exist to exercise UI states, not to be accurate.
-- Fake-server data is in `localStorage`; schema version `vellum.mockdb.v2` (reset with `__resetVellum()` after seed changes).
-- Static demo data remains for: admin screens, class list, analytics, student dashboard/progress, LMS, discussion, question bank, clusters, extracted-materials sample (`src/data/*`).
-- Some static dates in demo data are in the future.
-- `README.md` / `API-CONTRACT.md` still contain older sections (e.g. original dark-theme notes, `Collections (Section 6)`) that predate the migration — audit when touched.
-- `windows`-style `dev.bat` is present; `New Text Document.txt` is an empty stray file.
-
----
-
-## 11. Open decisions (ask the user when relevant)
-
-1. `allowBack` default (currently **on**; guide says "no way back").
-2. Fill-in-the-blank question type: guide §7.9 lists it; the schema has `truefalse` and `numerical` but not "fill-in-the-blank". Add or keep as is?
-3. Hosting: guide says Vercel (+ Render); repo has `netlify.toml`. Which one?
-4. Randomization of questions/options: server-side (preferred) or client-side?
-5. Class Discussion (not in the guide): keep, wire to API, or hide?
-6. Whether the backend dev wants a separate `docs/backend-handoff.md` derived from the contract.
-
----
-
-## 12. Testing approach
-
-- **Integration test** (Node, no browser): drives the real `src/api/*` modules through the real `client.js` into the fake server — 67 checks covering auth + 401 + role scoping, `_id`/ISO adaptation, tests lifecycle (generate/save/validate/publish/schedule/start/stop/extend/duplicate/regenerate/delete), student attempts (start, snapshot without keys, autosave, flags, submit idempotency), release gating (`immediately` vs `after_close`, 403 `NOT_RELEASED`), server-side expiry sweep, roster, grading queue (override, drafts, bulk approve, manual queue, `INVALID_MARKS`), network error mapping, cache refetch after writes. File: `tests/integration.test.js` (header comment says how to bundle/run with esbuild: `esbuild tests/integration.test.js --bundle --platform=node --format=esm --alias:@=./src --loader:.js=jsx --define:import.meta.env='{"DEV":false,"VITE_USE_MOCK":"true"}' --outfile=/tmp/int.mjs && node /tmp/int.mjs`). Run it with both `/api` and a full URL base.
-- **Whole-app bundle check**: `esbuild src/main.jsx --bundle --format=esm --loader:.js=jsx --alias:@=./src` with packages marked `--external` (catches syntax and unresolved imports).
-- **Unused-import scan** (small node script over `src/`).
-- **Next**: replace with vitest (+ React Testing Library) in Phase 10.
-- Always re-run all of the above before delivering a zip.
-
----
-
-## 13. Suggested chat workflow (saves tokens)
-
-1. New chat: attach **this `plan.md` + the latest project zip**. Say which phase/step (or which UI screens) to work on.
-2. The assistant unzips, reads §0, §3 and only the files relevant to the phase (grep first).
-3. Work in small verified increments; deliver a zip + a 5–10 line summary.
-4. At the end of each chat, update **§4 Progress log**, the checkboxes in §5–§7 and §10, and bump the zip name. Give the updated `plan.md` to the next chat.
-5. Don't paste long logs/code into chat; reference file paths.
-
----
-
-## 14. Progress log (append one entry per session)
-
-| Date | Zip | What changed |
-|---|---|---|
-| 2026-10-08 | `vellum-01` | Original UI uploaded; full gap analysis against the guide (frontend-only scope). |
-| 2026-10-09 | `vellum-02` | Step 1: question schema, mock store, generate → review → publish, publish dialog, drafts lifecycle. |
-| 2026-10-09 | `vellum-03` | Step 2: student Tests page, intro/runner/submitted flow, per-question answers, auto-submit, polling stop. |
-| 2026-10-09 | `vellum-04` | Step 3: Live Control on real attempts (Extend/Stop), publish settings (release, AI grading, allow back). |
-| 2026-10-09 | `vellum-05` | Step 4: grading pipeline, grade review, student history + attempt review; async hook shape (`useResource`), `wire`, `cache`. |
-| 2026-10-13 | `vellum-06` | Backend-readiness refactor: real-only API modules, fake backend in `src/mocks`, auth (`/auth/*`), autosave, server-driven status/release; full-URL base fix. |
-| 2026-10-13 | `vellum-07` | Added this `plan.md` and `tests/integration.test.js`. |
-| 2026-10-13 | `vellum-08` | Phase 5.1: `RequireRole` guards, session-expired toast. Next: 5.2 Subjects. |
-| 2026-10-14 | `vellum-09` | Phase 5.2: subjects + classes on the API, SubjectSwitcher, Subjects page. Next: 5.3 Admin on API. |
-| 2026-10-14 | `vellum-10` | Phase 5.3: admin on the API (users, classes, roster, KPIs). Light theme confirmed as default (bootstrapTheme.js fixed). Next: 5.4 analytics id route, 5.5 nav badges. |
-| 2026-10-14 | `vellum-11` | Phase 5.4 + 5.5: analytics student route, live nav badges. **Phase 5 complete.** Next: Phase 6 (see §7). |
+# Vellum — Plan (compact)
+
+Attach **this file + the latest zip** to a new chat and name ONE step (e.g. "B3a"). Source of truth for *what exists* is the code; for *the API* it is `API-CONTRACT.md`. Spec of the product: `AI_Testing_Platform_MERN_Full_Guide_Final.pdf`.
+
+## 0. Rules for every chat
+1. **One step per chat.** Read: this file, the step card, the files it lists (grep first, never `cat` big files). If a step needs >10 files or >~800 new lines, split it (a/b) and say so here.
+2. **Style:** direct, no recap/emoji, short bullets, changed files only. Deliver a zip to `/mnt/user-data/outputs/`; final message ≤10 lines + exactly what was NOT verified.
+3. **Contract-first.** Any API change = `API-CONTRACT.md` + mock (`src/mocks`) + server (`server/`, once it exists) + contract test, same change. The mock is the *reference implementation*: backend steps **port** its rules, they don't reinvent them.
+4. **Research before choosing a library/limit/model name** (user's standing request): web-search, verify current docs, add one line to §7. AI model names, free-tier limits and package names change.
+5. **The sandbox has no network** (no `npm install`, no DB, no running the server). Use the verification ladder and state which level ran; never claim V3/V4 passed:
+   - **V1** always: syntax/bundle check — `esbuild <entry> --bundle --format=esm --loader:.js=jsx --alias:@=./src --packages=external --outfile=/tmp/x.mjs` (esbuild path varies per sandbox — `which esbuild`, else `find / -name esbuild -path '*bin*'`; vellum-47 had `/opt/npm-tools/node_modules/esbuild/bin/esbuild`), plus `node --check`.
+   - **V2** always: dependency-free tests of pure logic: `npm test` (= `scripts/run-tests.mjs`, needs `npm i -D esbuild` once; 944 checks) and `node --test server/test/domain/*.test.js`.
+   - **V1b** (lint false positives "'X' is defined but never used" on every JSX component = an installed ESLint older than 10, which does not track JSX: run `npx eslint --version`, then `npm install`; unzip each version into a clean folder, since old copied-over files like `lib/school.js` linger) `npm run lint` is run by the user (ESLint is not installable here). Rules that bite (react-hooks 7): no `setState` in an effect body → derive the value, or remount with `key` (open-gated inner form), or set it in the event handler; no ref writes during render → `useLayoutEffect`; no `Date.now()` in render → `hooks/useNow`; no components defined inside components; files with components export only components (context objects/hooks live in `context/useApp.js`, `useToast.js`). Locally `tsc` (allowJs/checkJs, `noUnusedLocals`) catches undefined and unused names.
+   - **V2b** after any change to components, hooks, context or routes (the V2 test never renders a component; vellum-35 shipped a Sidebar crash from a removed `AppContext` field that V1/V2 could not see): browser smoke in headless Chromium, `tools/smoke/` (README there): `./build.sh`, then `ROLES=<role> W=1280 node run.mjs` for each role (and `W=390`), `node interact.mjs`. It renders every real route with the real mock server; **no CSS is loaded**, so it proves "doesn't crash / right text / clicks work", not layout. Also `tsc` with `allowJs/checkJs` finds undefined names (filter TS2304/TS2552; needs `ignoreDeprecations` or no `baseUrl` on TS 6). The context guard in `tests/` fails if a component reads an `AppContext` field that doesn't exist.
+   - **V3** user's machine: `cd server && npm i && npm test` (vitest + supertest + mongodb-memory-server). User pastes failing test names only.
+   - **V4** user's machine: `npm run test:contract:real` (same suites as the mock, against a running server + seed).
+   Frontend integration test (V2): `esbuild tests/integration.test.js --bundle --platform=node --format=esm --alias:@=./src --loader:.js=jsx --define:import.meta.env='{"DEV":false,"VITE_USE_MOCK":"true"}' --outfile=/tmp/int.mjs && node /tmp/int.mjs` → expect `exit=0`, **843 ok**, no FAIL.
+6. End of chat: tick §3, append one line to §8, keep this file **under ~30 KB** (compress, don't paste logs; long specs live in `docs/specs/`).
+
+## 1. Project
+**Vellum** = MERN final-year project: AI-powered testing & grading. Roles Admin / Teacher / Student. Teacher uploads outline (+ optional past papers: text/PDF/image) → text extraction → recurring-question clusters → optional web research for thin topics → AI test generation (class-wide or personalized per student, bank picks, human review) → publish/schedule/live control → student takes test (timer, anti-cheat flags) → objective auto-grade + AI rubric grading with teacher override → weakness profile/analytics → history/print → LMS. Guide §9.2: finish **Core** before **Enhanced**; human review of every AI output is deliberate.
+
+**State:** React 19 + Vite + Tailwind v4 frontend, complete through F7.4, talking HTTP to a **fake backend in the browser** (`src/mocks`, default on). **Next:** F13c–d (institution profile, photos), then **F12 (student history + parent reports: PDF to device + WhatsApp text summary)**; exact cards in `docs/specs/F11-F13-audit-reports-profiles.md`; then the real backend in `server/` (Express + MongoDB), phases B0–B15 (§5), porting the mock. Context: Pakistani school, college or university, so **say "institution", never only "school"** (rule from vellum-54); parents are reached by the teacher via WhatsApp (no email, no Business API, no share links, no parent login).
+
+Run FE: `npm install && npm run dev` (no .env; `VITE_USE_MOCK` default on, `VITE_API_BASE_URL` default `/api`). Demo logins (mock; any password): teacher `r.chen@westfield.edu`, student `maya.okafor@westfield.edu` (11A), admin `s.whitfield@westfield.edu`. Mock data in localStorage `vellum.mockdb.v10` (seed also has two graded written tests in 10A/11B); reset with `__resetVellum()`.
+
+**Map** (open only what you need): `docs/frontend-libraries.md` library plan, `docs/ui-rules.md` UI rules, `docs/ui-audit.md` U1 protocol, `API-CONTRACT.md` live contract (~21 KB; history in `docs/archive/`) · `README.md` FE wiring · `src/api/*` one fn per endpoint (`client.js`, `wire.js`, `cache.js`) · `src/hooks/*` (`useResource`) · `src/lib/{questions,antiCheat,testSettings}.js` shared rules · `src/pages`, `src/components/*`, `src/routes`, `src/context/AppContext.jsx` · `src/mocks/` = fake backend: `handlers.js` (~85 endpoints = the rules), `engine.js`, `db.js` (seed v10), `generator.js`, `grader.js`, `clusters.js`, `research.js`, `bankSeed.js`, `server.js` · `tests/integration.test.js` (1603 lines, one file, 656 checks, a few `db()` pokes; split in B0) · `scripts/ui-audit.mjs` UI lead finder (U1).
+
+## 2. Architecture rules
+**Frontend (keep):** reads = `useResource` hooks; writes = `api/*` `call()` with `invalidates`; pages render Loading/Error/Empty. No server logic in UI. Polling not websockets (tests 30 s, live roster 20 s, live-status 20 s, generation 1 s while running). Wire: server `_id` + ISO strings. Errors `{message, code}`; codes UI reacts to: `NOT_RELEASED NOT_OPEN NO_VARIANT INVALID_MARKS NOT_EDITABLE INVALID_QUESTIONS GENERATION_IN_PROGRESS INVALID_SETTINGS INVALID_FLAG` (+ per contract). 401 → sign out.
+**Server-owned rules (never in UI):** test status (draft|scheduled|live|completed) derived from schedule + manual stop; deadlines `min(start+duration, availableUntil)`; who sees what; answer keys (`correctIndex expectedAnswer rubric`) never reach students before release; grading; result release (`immediately|after_close`); flags (10 types, `lib/antiCheat.js`); settings validation; generation progress.
+**Backend layout (new, `server/`, ESM JS + JSDoc, Express 5, Mongoose, Zod):**
+- `src/app.js` (exports app) vs `src/server.js` (listen, graceful shutdown); `src/config/env.js` (Zod-parsed env).
+- `src/modules/<feature>/{routes,service,schema,model}.js` — vertical slices so one chat touches one folder.
+- `src/domain/*.js` — **pure rules, zero imports of express/mongoose** (port of `engine.js`, `lib/questions.js`, graders, clustering…) → testable at V2.
+- `src/ai/` — Groq client, limiter queue, prompt builder, schemas, **fake provider** (`AI_PROVIDER=fake|groq`). Controllers/services never call Groq directly.
+- Security: Zod `.strict()` on every body/query/param; `AppError(status, code, message)` + one error middleware (no stack in prod, JSON 404); helmet; CORS allow-list from env; JSON limit 100 kb (uploads override); `express-rate-limit` global + strict on login/AI routes; pino logs with request id (no answers/PII); `trust proxy` on Render.
+- Auth: argon2id (bcrypt ≥12 acceptable); access JWT 15 min (kept in memory on FE, not localStorage); refresh token 7 d rotating, httpOnly+Secure+SameSite cookie, stored **hashed**, reuse ⇒ revoke all; generic login errors; role middleware; others' resources → 404 (as the mock does).
+- Mongo: indexes named per card; `.lean()` reads; `toJSON` → `_id`+ISO; no transactions (idempotent writes + unique indexes); bounded arrays; `maxPoolSize` ≈10 (Atlas M0: 512 MB, ~100 connections); TTL index for caches.
+- Time-derived state computed on read (`statusOf`, `generationOf`); auto-submit = lazy check on every attempt request + idempotent interval sweep (no cron dep).
+- Uploads: multer `memoryStorage`, limits (25 MB/file, ≤20 items), allow-list by **magic bytes** (`file-type`), never trust mimetype/extension, never write to disk (Render disk is ephemeral) — store extracted text only; log accepted/rejected.
+- AI safety: model never touches DB/tools; instructions and untrusted text (teacher instruction, student answer, extracted material, web snippets) in separate role messages / delimiter blocks with a per-request random nonce; `json_schema` output **plus** Zod validation, one repair retry, then fail closed (written answers → `pending` for the teacher); clamp marks to `[0,max]`; cap `max_tokens` and input size; log token usage; human review stays.
+
+## 3. Status
+**Frontend DONE:** every teacher/student/admin flow through F7.4 (generate→review→publish, take/submit/history, live control, grading, role guards, subjects, admin, materials/clusters/research, question bank, generation progress, anti-cheat + publish toggles, shuffle, results page) + F8 analytics + weak topics (real) + F9 courses/lessons + class discussion (real) + U1 batches 1–5. **Original frontend scope is complete**; **F11 audit is complete (a–d, vellum-43 to 46)**; remaining: F12b–d reports, U1 polish (moved to the end, before B0), F10.
+**Frontend TODO (mock-first, then ported), in this order:** F12 parent reports complete (F12a done: vellum-53, F12b vellum-55, F12c1 contacts vellum-59, F12c2 summary text + style vellum-60, F12d share dialog + send queue vellum-61; F13a–d done: vellum-47…50) → F14 privacy policy (done: vellum-62) → **U1 UI/UX audit & polish** (the user's choice: at the end, before the backend; protocol `docs/ui-audit.md`; done so far: admin batch 1 = vellum-39, teacher Tests list = vellum-41) → backend → F10 last (needs a real toolchain). Cards: `docs/specs/F11-F13-audit-reports-profiles.md`.
+**Backend DONE:** nothing yet (B0 next after F13 + F12 + U1).
+**Static demo data still in UI:** none. `src/data/` is read only by the mock server (seed students, extracted-topic demo).
+
+## 4. Roadmap (do in this order; milestones in brackets)
+~~F7.3 … F14~~ (done) → **U1 UI/UX audit & polish (AI audit per role at 6 widths × 2 themes, then user-triaged fixes; moved here by the user in vellum-47)** → B0 → B1 (+F-auth) → B1b → B2 → B3a → B3b → B4a → B4b **[M1: real backend runs the app with template generator + keyword grader]** → B5 → B6a → B7a → B7b → B6b → B8 → B9a → B9b → B10 **[M2: real AI]** → B11 → B12 → B14 → B15 → B13 **[M3: deployed]** → F10 (final polish).
+**Why this order:** F11–F13 change the contract (audit events, reports, profiles, institution), so the backend ports the *final* contract once; F13 comes before F12 because the Profile page holds the teacher's parent-message style (F12c) and the institution name used in report headers (F12b); U1 covers the final screens and can be re-run any time (e.g. after M1); AI layer (B5) precedes anything that calls an LLM; materials/clusters precede generation; F10 needs a real toolchain (vitest, ESLint, `vite build`, a browser), so it is last.
+
+## 5. Backend step cards (≈ one chat each; "Port" = read that mock part and translate)
+**B0 Foundation + harness (M).** `server/` skeleton: package.json (scripts `dev start test seed test:contract:mock test:contract:real`), env, app/server split, mongoose connect, `AppError`+handler, helmet/CORS/limits/pino, `GET /api/health`, `toJSON` plugin, vitest+supertest+memory-server. **Split `tests/integration.test.js` into portable `tests/contract/*.test.js`** (target = mock or `BASE_URL`; the 4 `db()` pokes become dev-only hooks or go). Seed script mirrors `db.js`. *Done:* V1+V2, mock suites still 334 ok, health + error-shape tests written.
+**B1 Auth & accounts (M).** User model, argon2id, `/auth/login /me /refresh /logout`, role middleware, `/users` CRUD + deactivate (`ACCOUNT_DISABLED` 403; deactivated tokens 401), admin seeded from env, login limiter, temp-password stub (log). F-auth: `client.js` keeps token in memory, one refresh retry on 401. Port: auth+users handlers. *Done:* contract "Auth", "Admin: accounts". Index users.email unique.
+**B1b Audit service (M).** Append-only `auditEvents` (unique `seq`, unique `prevHash`), hash chain + per-entry HMAC with `AUDIT_HMAC_KEY` (env, never in DB), checkpoints every 100 events + daily to the app log and `auditCheckpoints`, `verify` command, `GET /api/audit/integrity`; same event shape/hashes as `lib/audit.js` (contract test with fixed vectors). *Every later B-card that ports a handler must emit the events in the spec §2 table and test them.* Spec: `docs/specs/F11-F13-audit-reports-profiles.md` §5.
+**B2 Classes & subjects (S/M).** Models, `classesFor(user)` scoping, roster (`average:null` until B4b), 409s (`CLASS_IN_USE`, `SUBJECT_IN_USE`, duplicates). *Done:* contract "Classes & subjects" + class parts of admin.
+**B3a Tests: model + CRUD (L).** Test model (embedded questions/variants, settings, schedule); `domain/` ports of `statusOf`, settings validation, `lib/questions.js`, projections (`testForTeacher/Student`, `stripQuestion`); PUT rules (`NOT_EDITABLE`, `GENERATION_IN_PROGRESS`), duplicate, delete, `GET /tests`; template generator behind a `generator` interface (port `generator.js`). *Done:* contract "Tests" minus publish/live; domain tests at V2.
+**B3b Publish & live control (M).** publish (validate settings first; bank hook stub), start-now/stop-now/extend, schedule rules, randomization per F7.3. *Done:* publish/live contract parts.
+**B4a Attempts (L).** `start` (snapshot without key, deadline, variant + shuffle map), autosave, flags (10 types; ignored after submit), live-status, idempotent submit, timeout auto-submit (lazy + sweep). Index attempts (testId,studentId) unique. *Done:* contract "Attempts", "Anti-cheat events".
+**B4b Grading & results (L).** Objective grading, release policy, `/attempts/:id/review` (key only after release), queue, `PATCH /grades/...`, bulk approve, `/tests/:id/attempts`, `/attempts`; keyword grader behind a `grader` interface (port `grader.js`). *Done:* contract "Grading". **M1: run the FE with `VITE_USE_MOCK=false`.**
+**B5 AI layer (M).** `src/ai/`: Groq client (model names from env), `generateJson({system,user,untrusted[],schema})` = json_schema + Zod + 1 repair retry, Bottleneck limiter (RPM + concurrency from env; 429 honours `retry-after`), nonce-delimited prompt builder, token caps, usage log, fake provider, admin `GET /api/health/ai`. V2: prompt-builder + injection fixtures.
+**B6a Materials: text + PDF (L).** Material model, upload per contract (manifest/files/pastedText), magic-byte allow-list, extractors (text as-is; digital PDF via current PDF-text lib — verify; scanned detection), per-item results, list/PUT/DELETE/reextract. Port: `extractMaterials` + materials handlers.
+**B6b Materials: images/scans (M).** Vision extraction via B5 (Groq vision model, env), scanned-PDF pages → images, optional Tesseract fallback.
+**B7a Questions + embeddings + clusters (L).** Port `splitQuestions`; embedding service (`@huggingface/transformers`, `{pooling:'mean',normalize:true}` ⇒ cosine = dot; lazy singleton; vectors cached by text hash; `EMBEDDINGS=lexical` fallback = port of mock similarity for tests/low RAM); clustering with `threshold`; `GET/PUT /materials/:id/questions`, `GET /subjects/:id/clusters`.
+**B7b Question bank (M).** Bank CRUD, `saveToBank` on publish (reuse by `bankId`/normalized text), `bankQuestionIds` in generate.
+**B8 Topics & web research (M).** Topic extraction from outline (structured LLM), coverage → `thin`/`passages`, `GET /subjects/:id/topics`; search provider interface (Groq compound or Tavily, env); Mongo cache with TTL index; labelled `sources` (`material|web|bank`); graceful fallback.
+**B9a Real generation, class mode (L).** Prompt = outline excerpt + clusters + thin-topic snippets + teacher rules/focus/instruction (untrusted); output = question schema; validate/repair; mix/marks balancing **in code**; bank picks lead; regenerate. Template generator becomes the fake provider.
+**B9b Personalized generation (L).** Per-student variants via B5 queue; job doc with real progress (`GET /tests/:id/generation`); partial failures + retry (contract `failed[]`); weak-topics hook (empty until B11).
+**B10 AI grading (M).** Rubric prompt per written answer (answer = untrusted); Zod `{marks,confidence,rubric,feedback}`; clamp; fail closed → `pending`; low-confidence flag; async job after submit (`grading`→`ai_draft`); `aiGrading=false` path; regrade; injection fixtures at V2.
+**B11 Analytics (M).** Port `lib/analytics.js` → `domain/analytics.js`; StudentProfile tallies per subject/topic updated when grades go final (idempotent recompute); `/analytics/me`, class + student endpoints (F8 contracts), roster `average`, weak-topic signal for B9b.
+**B12 LMS (M).** Port the F9 contract: courses, lessons, progress.
+**B14 Reports (M).** Port F12 (`/analytics/students/:id/history`, `/reports`, `/reports/batch`, `/reports/:id/exported`, guardian endpoints) and add **server-made PDFs** (headless Chrome so Urdu shapes correctly; `GET /api/reports/:id.pdf`, `POST /api/reports/zip` = one PDF per student in a ZIP). Font on the server; check memory on Render free. Spec §5.
+**B15 Profiles, institution, passwords, photos (M).** Port F13: argon2id/bcrypt + `lib/password.js` server-side (min 15, breached-password list — verify the provider at build time), `403 PASSWORD_CHANGE_REQUIRED` while `mustChangePassword`, `400 WRONG_PASSWORD`, temp passwords returned once + `mustChangePassword`, `school` collection, photos re-encoded server-side (`sharp`, strip EXIF, 256 px) and served only through an access-checked endpoint, rate limits on `/auth/*`. Spec §5.
+**B13 Deploy & hardening (M).** `render.yaml`, Atlas M0 URI, env docs, CORS, trust proxy, keep-alive + cold-start note (lazy-load embeddings), indexes audit, pagination, `npm audit`, OWASP checklist, contract diff, full real-backend run, short `docs/backend.md`. Decide hosting (§9).
+
+## 6. Frontend step cards (remaining, mock-first)
+**F7.3 DONE** shuffle: `settings.shuffleQuestions/Options`; attempt stores shuffled snapshot + `attempt.shuffle` order map (for analytics/results); port `lib/randomize.js` → `domain/randomize.js` (B3b/B4a). **F7.4 DONE** `/teacher/results/:testId` + `GET /tests/:id/results`, `lastSeenAt`/`clientSilent` (no ping >60 s = clue, not proof).
+**U1 UI/UX audit & polish** (protocol, rubric, imagery prompts, seed findings: `docs/ui-audit.md`). **Decided vellum-51 after research: a script takes the screenshots, Claude reviews them.** A scripted Playwright capture is free, repeatable and identical every run (6 widths × 2 themes); an AI browser agent adds cost, variance and, on free models, often no image input (Playwright-MCP agents read accessibility snapshots, not looks), so its report never replaces the review. OpenCode (free, open source) is optional **only as a runner** of commands; Claude in Chrome (paid) is not used.
+**Step 0 — DONE (vellum-63).** `tools/audit/capture-live.mjs` + `npm run audit` (real login page, real fonts/icons/charts, 6 widths × 2 themes, axe-core WCAG 2.2 AA scan, Tab walk, ARIA snapshot, iOS input-zoom check, `BROWSER=webkit|firefox`, JPEG q80 shots because Playwright cannot write WebP, `audit-<role>.zip`); fonts self-hosted (`public/fonts`, `src/styles/fonts.css`, Google links removed from `index.html`); `axe-core`, `esbuild`, `playwright` in `package.json` (run `npm install` once to refresh the lock file); 6 lint errors fixed. **From now on the user uploads `vellum-deps-*.zip` with the project and Claude runs the audit itself in the sandbox** (`npm ci --offline --ignore-scripts --cache=<deps>/cache`, dev server on :5199, `PLAYWRIGHT=/home/claude/.npm-global/lib/node_modules CHROME=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome ROLE=<role> npm run audit`); the user needs to run nothing. Chromium only in the sandbox; WebKit/Firefox and real-device checks stay manual. **First candidate findings (not yet triaged):** Tab order starts in the main content and the skip link comes after it (skip link must be first); two `h1` per page at ≥ 1280; axe `label-content-name-mismatch` on every page; several tap targets under 24 px (`Manage →`, `Delete`, `Public page`, `See all events`).
+**Per role (admin → teacher → student → signed out; one chat each):** (1) Claude runs `ROLE=<role> npm run audit` in the sandbox (screenshots, `report.json`, `findings.md`); (2) Claude views every shot against the 13-point rubric → `docs/audit/<role>.md` (ID, page@width/theme, P0–P3, evidence, fix; ≤5 "big ideas"); (3) user triage (default: all P0+P1 and the chosen P2/P3); (4) fix at the shared layer + sweep; swap select/menu/modal for Base UI; (5) re-capture the affected pages, V1 + tests + `scripts/ui-audit.mjs` (counts must not rise); (6) manual 15-minute NVDA/VoiceOver script per role. **Imagery:** login hero/brand image, prompts in the doc (user generates or picks a free-licence file, or Claude writes an SVG). **Still not covered by automation:** logical focus order, screen-reader announcement quality, real-device touch, performance (manual passes). Sandbox shots (`tools/audit`) stay as the fallback: fallback fonts, placeholder icons/charts.
+**F8 Analytics DONE (a student, b teacher, c weak topics).** `lib/analytics.js` is pure/portable (fully-final attempts only; students see released tests + class averages only); mock `GET /analytics/me|class|students/:id`, hooks in `useAnalytics`, CSV via `lib/csv.js`; `weakTopicMap` (own lowest topic if <75%, else class weakest, else none) feeds `buildVariants` (~25% of questions). Not built: teacher notes, test filter. Port to `domain/analytics.js` in B11, `generateVariants` in B7b.
+**F9 DONE.** (a) courses/lessons: `courses`, `lessons`, `lessonProgress` in the mock DB; `GET/POST/PUT/DELETE /courses`, lesson CRUD + `order` + student `progress`; rules in `lib/lms.js` (http(s) URLs only, related test = non-draft test of the same subject, cascades); lesson *modules* are only a display grouping (`groupLessons.js`). (b) Class discussion: `threads` in the mock DB, `GET/POST /threads`, `PUT/DELETE /threads/:id`, replies; rules in `lib/discussion.js`; teacher pin/delete/announce, resolve by teacher or author. Not built: edit own post, notifications.
+**F11 Admin audit — DONE (a–d, vellum-43 to 46).** Admin = read-only auditor (no superadmin). Hash-chained, append-only log in the mock (tamper-evident; backend adds HMAC + external checkpoints, B1b). Admin pages: Overview (integrity + signals + latest), Tests (grading trail), Teachers (7 clue-signals, seeded fixture), Events (filters + self-logging CSV). Teacher page: Grading history. Mark changes ≥25% from the AI mark, or after release, need a reason. Demo: `__tamperVellumAudit(5)` then "Verify now".
+**F13 Profiles — DONE (a–d, vellum-47…50; card `docs/specs/F11-F13-audit-reports-profiles.md`).** a: Avatar, Profile page, `GET/PATCH /profile`. b: `lib/password.js` (NIST 800-63B-4, min 15 = one constant), change/reset, one-time temp password, forced change. c: `GET/PUT /school` (admin), School page, logo resize, `useSchool()`, switch `allowStudentPhotos` (default off). d: `lib/photoPolicy.js`, `photoFor()` (the only exit for a photo), `PhotoDialog`/`PhotoActions`, `lib/encodePhoto.js`; **needs `npm i react-avatar-editor`**; students need the switch, teachers see only their classes, classmates never.
+**F12 Student history & parent reports — a DONE (vellum-53), b DONE (vellum-55, Urdu option vellum-58), c1 DONE (vellum-59), c2 DONE (vellum-60), d DONE (vellum-61).** F12d built `lib/shareQueue.js`, `POST /reports/batch`, `ShareDialog.jsx`, `SendQueue.jsx`, page `/teacher/analytics/share` (queue kept in sessionStorage) and the entry points (see the spec card). F12c1 built: `lib/contact.js`, `GET/PUT /students/:id/guardian`, `guardian.update`, teacher card + admin dialog + create-form fields (see the spec card). F12c2 built `lib/summary.js` (`buildSummaryText` → `{ text, level, fits }`), `lib/summarySample.js`, `ParentMessageStyle.jsx` on the teacher Profile and `prefs.parentSummary` in `PATCH /profile`; F12d must build the report with all sections on and call `buildSummaryText(report, teacherStyle, { parentName, teacherName })`. F12c2 reuses `lib/reportLabels.js` for the WhatsApp text (`SUMMARY_LABELS` = these labels) and the phrase bank. b built: `lib/report.js` (`resolvePeriod` Monday weeks in the browser zone, `buildReport`, `reportContentHash`, `reportFileName`, `nextStepsFromTopics`, `draftComment`), mock `GET /reports/data`, `POST /reports`, `POST /reports/:id/exported`, events `report.generate`/`report.export` (no text), page `/teacher/analytics/:studentId/report` (`ReportOptions`, `ReportSheet`, "Make parent report" on the student page, "Next student →" via router state), print CSS + app chrome hidden when printing; a report holds confirmed **and released** marks only; the comment is hashed, never stored; **Urdu (vellum-58):** `lib/reportLabels.js` (`REPORT_LABELS` en/ur, `STEP_TEXT`, `COMMENT_PHRASES` + `addPhrase`), report option `language` en | ur | both (an Urdu sheet is right-to-left with logical alignment; the chart and numbers stay left-to-right; no letter-spacing or capitals on Urdu), Urdu next steps and draft comment, "Quick phrases (no keyboard needed)" for teachers without an Urdu keyboard; verified in headless Chromium (joined letters, RTL, mixed lines); only fixed wording is translated, never names, topics or feedback; **the Urdu wording needs one native review** (decision 14). PDFs must be saved with the browser's own "Save as PDF", not Windows "Microsoft Print to PDF" (that makes picture-only PDFs); unverified: A4 pagination on real printers. a built: a built: `lib/studentHistory.js` (`buildStudentHistory`, `filterHistory`, `summarizeHistory`, `formatDuration`, day helpers) + `trendOf` in `lib/analytics.js` (≥3 graded tests; latest two vs earlier mean; under 5 points = steady, a heuristic like report tools that wait for 3 data points); mock `GET /analytics/students/:id/history?subject=<subjectId>&from=&to=` (all subjects of the class, 404 outside the teacher's classes, 400 `INVALID_FILTER`); `StudentHistory` section (filters, summary line, flags by severity, CSV) replaces "Recent attempts" on the student profile (`recent` stays in the endpoint); class table gained Trend, Last test, Below target (topics) and row checkboxes (state only, used by c/d); the row time key is `at` (wire time key), no `date`; no new library, so the Urdu PDF spike starts F12b; not built: tests a student never took. Original card: a student list + per-student test history (teacher, CSV) — DONE in vellum-53 (see below); b report builder: weekly + test presets, A4 print layout/Save PDF, file naming, Next student; c parent contacts (`guardianName/Phone`), WhatsApp summary builder + per-teacher saved style (en/ur/both); d Share dialog + send queue for one/selected/whole class (opens WhatsApp per parent; logs "opened", never numbers or text). One card per chat.
+**Later (not scheduled): on-screen Urdu keyboard (U-kbd, M).** Students may lack an Urdu keyboard when answering Urdu-medium tests: an optional on-screen Urdu keyboard / phonetic input for answer and comment fields (`dir=auto`), plus a note in the test settings for the language of the paper. Research first (layouts: phonetic vs standard Urdu), after F14. For reports it is not needed: the quick phrases and Urdu labels cover teachers.
+**F14 Privacy policy & data notice (M) — DONE (vellum-62), added vellum-54 "just in case it is needed".** *Built: items 1, 2, 3 and 5 as written below (the stored text keeps the placeholders and the server fills them on read; `reviewed` is also public; the template has 14 sections); item 4 not built (decision 25).*  The institution, not Vellum, is the data controller, so the product gives it a *template it must review with its own legal adviser*, not legal advice. Researched pattern (LMS vendors, Common Sense privacy evaluations, FERPA/COPPA/GDPR-style notices): a version and effective date, what is collected and why, who sees it, AI use, retention, rights and how to use them, children's data, contact, how changes are announced. **Do:** (1) `lib/privacy.js` (pure): `PRIVACY_TEMPLATE` (neutral wording, fills `{{institution}}`, `{{contactEmail}}`, `{{city}}`) covering accounts and roles, marks and answers, anti-cheat events, photos (only if `allowStudentPhotos`), guardian contacts and WhatsApp sharing (F12c/d: the teacher opens WhatsApp, Vellum stores no message text or number in logs), the audit log, **AI grading and test generation disclosure** (student answers may be processed by the AI provider, B5/B6), retention (default: kept for the academic year plus the period the institution sets), rights (view, correct, delete via the administrator), minors, security limits, changes; `renderPolicy(text, institution)`; `validatePrivacy` (text 200–20 000 chars, plain text with `## ` headings only, never HTML). (2) Mock + contract: `GET /institution/privacy` **public** `{ text, version, effectiveDate, updatedAt }`; `PUT` admin, bumps `version`, event `privacy.update` with `meta { version }` (never the text). (3) UI: admin Institution page gets a "Privacy policy" section (edit, preview, "start from the template", visible "draft, have it reviewed" banner until the admin ticks reviewed); public page `/privacy` (readable signed out, print-friendly with the institution letterhead); links in the sign-in footer, Profile page and sidebar footer. (4) Optional, **default off** (open decision 25): one-time "I have read it" screen per policy version, stored as `privacyAcceptedVersion` on the user. (5) Tests: template placeholders, validation (HTML refused), public read signed out, version bump, event has no text, links present. Not built: cookie banner (the app sets none beyond the session), per-country legal text.
+**F10 Polish (L).** vitest port of all tests, lint, remove dead code/duplicates, a11y (dialog focus, aria-live timers/saves), responsive (phone test-taking, tables), hosting config, prune README. UI backlog (when the user sends screen feedback): states (loading/empty/error), long content, ≤640 px, dark/light, copy consistency.
+
+## 7. Verified research (Oct 2026; sources: Express/Groq/OWASP/HF/Render docs and guides — re-check at build time)
+§2 rules come from: Express security guides (helmet, CORS allow-list, rate limit, no stack traces, Zod), OWASP-style auth guidance (15 min access + rotating hashed refresh cookie; argon2id/bcrypt ≥12; no localStorage), OWASP LLM01:2025 (delimit untrusted data, validate **output**, least privilege, human approval — "tell the model to ignore injections" is not a defense), upload guidance (magic bytes, limits, memory storage).
+- Groq: `response_format json_schema`; `strict:true` only on `openai/gpt-oss-20b`/`-120b`, others best-effort ⇒ always Zod-validate; no streaming/tool-use with structured outputs; `service_tier flex|auto` can raise limits; model list changes ⇒ names in env.
+- Embeddings: package is `@huggingface/transformers` (the PDF's `@xenova/transformers` is the old name); model `Xenova/all-MiniLM-L6-v2`, 384-d.
+- Render free: 512 MB RAM, 0.1 CPU, sleeps after 15 min (30–60 s wake), 750 h/month, ephemeral disk. Atlas M0: 512 MB, ~100 connections (verify).
+- vitest + supertest + mongodb-memory-server works, but memory-server lacks reliable transactions/change streams.
+
+**UI rules** (Tailwind v4, WCAG 2.2 AA; semantic tokens only, `cn()`, no `@apply`, no class names built from fragments, `size-N` when w=h, breakpoints `narrow` 520 / `tablet` 860): full list in `docs/ui-rules.md`; re-verify at U1.
+
+**Frontend libraries** (researched Nov 2026, none installed; `docs/frontend-libraries.md`): Base UI at U1, axe-core + Playwright at U1 step 0, Zod (+ React Hook Form) at B0, TanStack Query at B1/B2, `@react-pdf/renderer` at F12a after an Urdu spike, `react-avatar-editor` at F13d (**`npm i` needed**), React Bits optional. The sandbox has no network: each is `npm i` on the user's machine.
+
+**WhatsApp click-to-chat** (checked Nov 2026, WhatsApp Help Center "click to chat"): `https://wa.me/<full international number, digits only, no + or 0s or dashes>?text=<URL-encoded text>`; the text parameter is optional. No documented length limit, so `WA_URL_BUDGET = 2000` is our own safe cap. Measured in `lib/contact.js`: space/newline = 3 characters, an Urdu letter = 6.
+
+## 8. Log (newest last; keep ≤8 lines)
+- 2026-10-30..11-13 `vellum-39…50`: U1 admin batch 1; **F11a–d** append-only hash-chained audit log, event explorer, teacher fairness signals (`lib/auditSignals.js`), integrity check (`docs/specs/F11-F13-audit-reports-profiles.md`); **F13a–d** Avatar + Profile page (`GET/PATCH /profile`), passwords (`lib/password.js`, one-time temp password, forced change), Institution page (`GET/PUT /institution`), photos (policy, upload/crop, `photoUrl`); library research → `docs/frontend-libraries.md`, UI rules → `docs/ui-rules.md`. 843 checks.
+- 2026-11-14 `vellum-51/52`: U1 turned into an AI audit: `tools/audit` (Tailwind compiler + 6-width × 2-theme capture + mechanical checks), `docs/ui-audit.md`, signed-out mode in the smoke harness, placeholder icon/chart stubs; scripted capture on the user's machine decided (OpenCode optional runner, Claude in Chrome not used). No app code changed.
+- 2026-11-15 `vellum-53/54`: (53) **F12a** student test history (`lib/studentHistory.js`, `trendOf`, `GET /analytics/students/:id/history`, `StudentHistory`, class table Trend/Last test/Below target + row picks). (54) **School → Institution** everywhere (code, `/institution`, nav, copy, seed "Westfield Institute"); name + logo now applied through `GET /institution/public` (sidebar, mobile bar, sign-in, test pages, tab title, `PrintHeader` on printed analytics); F14 privacy-policy phase added. 880 checks (54). Next F12b.
+- 2026-11-15 `vellum-55…58`: (58 = Urdu / bilingual report option, quick phrases, `argsIgnorePattern` in eslint.config.js; 57 = `eslint.config.js` gets the Vite template's `no-unused-vars` + `varsIgnorePattern: '^[A-Z_]'`, because the user's ESLint reported every JSX component import as unused; 56 = lint fixes: audit filter helpers moved to `lib/auditEvents.js`, unused test variables) **F12b** report builder + PDF via print: `lib/report.js`, `/reports/*`, report page and sheet, print fixes (927 checks). Next F12c.
+- 2026-11-17 `vellum-59`: **F12c1** parent contacts (`lib/contact.js`, `GET/PUT /students/:id/guardian`, `guardian.update` event without values, teacher card, admin dialog, create-form fields). Smoke harness: stale `/admin/school` path fixed to `/admin/institution`; new parent-contact browser checks. 975 checks.
+- 2026-11-17 `vellum-60`: **F12c2** parent summary text (`lib/summary.js`, 4 trim levels so it stays within 600/1,200 characters and one `wa.me` link), per-teacher style in `prefs.parentSummary` (`PATCH /profile`, teachers only), "Parent messages" section with live preview on the Profile page. Two flaky F12c1 test regexes fixed (hashes and timestamps can contain "0300"). 1007 checks. Next F12d (share dialog + send queue).
+- 2026-11-17 `vellum-61`: **F12d** share dialog + send queue (`POST /reports/batch`, `lib/shareQueue.js`, `ShareDialog`, `SendQueue`, `/teacher/analytics/share`, queue saved in sessionStorage because router state was lost on navigation in the browser harness). F12 is complete. 1035 checks + browser checks for the whole flow.
+- 2026-11-17 `vellum-62`: **F14** privacy policy (`lib/privacy.js` template + rules, public `GET /institution/privacy`, admin `PUT` with versioning and `reviewed`, event `privacy.update` without text, public `/privacy` page, admin editor with preview, links on sign-in, Profile and sidebar). 1100 checks + browser checks. Next: U1 (needs `fetch-deps` so Claude can render the real app) or backend B0.
+- 2026-11-18 `vellum-63`: **U1 Step 0** (live audit tool, self-hosted fonts, devDependencies, lint clean). 1100 checks. Next: **U1-admin** (run `ROLE=admin npm run audit`, review every shot, write `docs/audit/admin.md`).
+
+## 9. Open decisions (ask when the step needs them)
+1 Hosting: guide says Vercel+Render; repo has `netlify.toml` (B13). 2 `allowBack` default (on now; guide: off). 3 Fill-in-the-blank type missing. 5 Temp password: shown once to the admin (F13b), never emailed; B1 only keeps that. 6 Keep original uploads? default no (extracted text only). 7 Refresh-token auth (default) vs 1 h JWT. 8 Groq model names + search provider (B5/B8). 9 TypeScript? default no (JS + JSDoc + Zod). 10 Parent portal: not planned. 11 Report grade letters: percent only until the institution's scale is given. 12 Audit retention: forever in the mock, ≥ 1 academic year in the backend (B1b). 13 PDF into WhatsApp: print to PDF + text via `wa.me` unless a PDF library / server PDFs (B14); F12b uses the print dialog, so no Urdu PDF library was needed. 14 Urdu parent-message labels need a native speaker. 20 Password minimum 15 (NIST single-factor) vs 8: `PASSWORD_MIN_LENGTH`. 21 Urdu interface (i18n + RTL): not researched. 22 Offline/PWA, KaTeX: not planned. 24 Login hero image: generated, free stock or SVG; ask at the signed-out U1 chat. 26 Parent numbers outside Pakistan (e.g. a parent abroad) are refused for now; add `+` international numbers only if the institution needs them (c1 accepts Pakistani mobiles only). 25 Privacy policy: require "I have read it" per version at sign-in? default off (F14). **Decided:** the product says **institution** (school, college or university), never only "school"; the institution's name and logo lead every screen, Vellum only as "Powered by Vellum" on the sign-in page (vellum-54); student photos off by default (institution switch + consent); name/email/roll/class admin-only; no WhatsApp Business API; no email for reports; OpenCode only as an optional runner (vellum-51).
+
+## 10. Known issues / unverified
+- **Never run by the assistant:** ESLint, `vite build`, real fonts/icons/charts (sandbox shots via `tools/audit` use the compiled Tailwind CSS but fallback fonts and placeholder icons/charts; contrast, keyboard and screen-reader use are not covered; fullscreen, clipboard and `wa.me` limits are unverified), Urdu text in printed PDFs, the audit pages' date inputs, `npm run dev` auto-open (`server.open`), and every library in `docs/frontend-libraries.md`.
+- **Not yet checked on a real phone:** `ui/select.jsx`, `ui/menu.jsx`, the responsive Accounts table, the Tests list, the Profile page.
+- **Stand-ins and debt:** mock AI/grader; the mock hard-deletes tests and attempts (backend must soft-delete); some static demo dates are in the future; `README.md` has older sections to prune and a stray `dev.bat` (F10). Run `bash tools/smoke/build.sh` (the exec bit is lost when unpacking archives).

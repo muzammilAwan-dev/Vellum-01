@@ -4,11 +4,13 @@ import { NumberStepper } from "./NumberStepper";
 import { ScopeEstimate } from "./ScopeEstimate";
 import { TopicInput } from "./TopicInput";
 import { Bento, Chip, ChipRow, Conn, SectionHeader } from "@/components/common";
-import { inputClass } from "@/components/common/FormField";
-import { DEFAULT_MIX, QuestionMixBuilder } from "@/components/common/QuestionMixBuilder";
-import { useToast } from "@/context/ToastContext";
-import { TOPICS } from "@/data/analytics";
+import { inputClass } from "@/components/common/inputClass";
+import { QuestionMixBuilder } from "@/components/common/QuestionMixBuilder";
+import { DEFAULT_MIX } from "@/lib/questions";
+import { useToast } from "@/context/useToast";
+import { useSubjectTopics } from "@/hooks/useTopics";
 import { cn } from "@/lib/cn";
+import { typeLabel } from "@/lib/questions";
 import { Button } from "@/components/ui/button";
 
 // ═══════════════════════════════════════════════════════════════
@@ -21,7 +23,7 @@ import { Button } from "@/components/ui/button";
 // Guide §1: the teacher can give "2-4 topics to focus on".
 const MAX_FOCUS_TOPICS = 4;
 
-export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
+export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, bank }) => {
   const toast = useToast();
   const [title, setTitle] = useState("");
   const [mix, setMix] = useState(DEFAULT_MIX);
@@ -32,14 +34,21 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
   // Optional: with no focus topics the test weighs the whole outline.
   const [focusTopics, setFocusTopics] = useState([]);
   const [instruction, setInstruction] = useState("");
+  // Off by default: nothing leaves the teacher's own material unless they ask.
+  const [webResearch, setWebResearch] = useState(false);
+  const { data: subjectTopics } = useSubjectTopics(subjectId);
   const [busy, setBusy] = useState(false);
-  const [queued, setQueued] = useState(false);
 
   const MAX_CHARS = 400;
-  const suggestions = TOPICS.map((t) => ({
+  const topics = subjectTopics ?? [];
+  const suggestions = topics.map((t) => ({
     name: t.name,
-    meta: `${t.accuracy}%`,
+    meta: t.thin ? "thin" : `${t.passages} passages`,
   }));
+  const thinChosen = focusTopics.filter((n) => topics.find((t) => t.name === n)?.thin);
+  const thinAll = topics.filter((t) => t.thin).map((t) => t.name);
+  // Which thin topics this test will lean on: the chosen ones, or any if none chosen.
+  const thinInScope = focusTopics.length ? thinChosen : thinAll;
   const totalQuestions = mix.reduce((s, r) => s + r.count, 0);
   const totalMarks = mix.reduce((s, r) => s + r.count * r.marks, 0);
 
@@ -63,7 +72,8 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
     );
 
   const handleCreate = async () => {
-    if (totalQuestions === 0) {
+    const bankQuestions = bank?.questions ?? [];
+    if (totalQuestions === 0 && bankQuestions.length === 0) {
       toast.push("Add at least one question type first", "error");
       return;
     }
@@ -76,9 +86,10 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
       difficulty,
       focusTopics,
       instruction,
+      webResearch,
+      ...(bankQuestions.length ? { bankQuestionIds: bankQuestions.map((q) => q.id) } : {}),
     };
     setBusy(true);
-    if (mode === "personal") setQueued(true);
     try {
       await onCreate(config);
     } catch (err) {
@@ -88,7 +99,6 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
       );
     } finally {
       setBusy(false);
-      setQueued(false);
     }
   };
 
@@ -121,9 +131,31 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
         <Conn state="live" />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      <div className="grid gap-5">
         {/* ═══ Form column ═══ */}
         <div className="flex min-w-0 flex-col gap-5">
+          {bank?.questions?.length > 0 && (
+            <Bento>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <SectionHeader label={`From your question bank · ${bank.questions.length}`} />
+                <Button variant="ghost" size="sm" onClick={bank.onClear}>
+                  Remove all
+                </Button>
+              </div>
+              <p className="mb-3 text-[12.5px] leading-relaxed text-ink-3">
+                These lead the draft. Each counts toward its type in the mix below — only the rest is generated.
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {bank.questions.map((q) => (
+                  <li key={q.id} className="truncate rounded-[var(--radius-control)] border border-rule bg-bg px-3 py-2 text-[13px] text-ink-2">
+                    <span className="mr-2 font-mono text-[12px] font-semibold text-ink-3">{typeLabel(q.type)}</span>
+                    {q.text}
+                  </li>
+                ))}
+              </ul>
+            </Bento>
+          )}
+
           <Bento>
             <SectionHeader label="Test structure" />
 
@@ -223,7 +255,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
                 </Chip>
               </ChipRow>
               {mode === "personal" && (
-                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary-soft px-3 py-1.5 text-[12px] font-medium text-primary">
+                <div className="mt-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-primary/25 bg-primary-soft px-3 py-1.5 text-[12px] font-medium text-primary">
                   <Users size={12} />
                   Each student gets a different set, weighted to their weak
                   topics
@@ -268,6 +300,40 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
               />
             </div>
 
+            {/* Web research */}
+            <div className="mb-6 rounded-[var(--radius-control)] border border-rule bg-bg px-4 py-3.5">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={webResearch}
+                  onChange={(e) => setWebResearch(e.target.checked)}
+                  className="mt-1 size-4 accent-[var(--color-primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[13.5px] font-medium text-ink">
+                    Enrich with current info from the web
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] leading-relaxed text-ink-3">
+                    For topics your materials barely cover, questions can draw on a web page. Web sources are
+                    labelled on each question and never replace your own material.
+                  </span>
+                </span>
+              </label>
+              {thinInScope.length > 0 && (
+                <p
+                  role="status"
+                  className={cn(
+                    "mt-3 rounded-[var(--radius-control)] px-3 py-2 text-[12.5px] font-medium leading-relaxed",
+                    webResearch ? "bg-primary-soft text-primary" : "bg-warning-dim text-warning",
+                  )}
+                >
+                  {webResearch
+                    ? `Web sources will be added for ${thinInScope.join(", ")}.`
+                    : `Your materials are thin on ${thinInScope.join(", ")}. Questions there may be generic — turn this on to fill the gap.`}
+                </p>
+              )}
+            </div>
+
             {/* Free-text guidance */}
             <div className="border-t border-rule pt-6">
               <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -308,7 +374,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
                     type="button"
                     onClick={() => appendQuick(q.text)}
                     className={cn(
-                      "rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                      "whitespace-nowrap rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors",
                       instruction.includes(q.text)
                         ? "border-primary bg-primary-dim text-primary"
                         : "border-dashed border-rule-2 text-ink-2 hover:border-solid hover:border-ink-3 hover:text-ink",
@@ -332,21 +398,6 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
             />
           </Bento>
 
-          {/* Queued banner */}
-          {queued && (
-            <Bento className="flex-row items-center gap-3.5 border-warning/30 bg-warning-dim">
-              <span className="size-4 shrink-0 animate-spin-slow rounded-full border-2 border-warning border-t-transparent" />
-              <div>
-                <strong className="block text-[13.5px] font-semibold text-warning">
-                  Queued for generation
-                </strong>
-                <span className="mt-0.5 block text-[12.5px] text-warning/85">
-                  Rate limit pacing — 2 of 32 tests in this batch.
-                </span>
-              </div>
-            </Bento>
-          )}
-
           {/* Actions bar */}
           <Bento className="flex-row flex-wrap items-center justify-between gap-3 !py-4">
             <Button
@@ -366,7 +417,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "" }) => {
                 {busy ? (
                   <>
                     <span className="size-3 animate-spin-fast rounded-full border-2 border-current border-t-transparent" />
-                    {queued ? "Queued…" : "Generating…"}
+                    Generating…
                   </>
                 ) : (
                   <>

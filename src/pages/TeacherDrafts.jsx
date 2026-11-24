@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useApp } from "@/context/AppContext";
-import { useToast } from "@/context/ToastContext";
+import { useApp } from "@/context/useApp";
+import { useToast } from "@/context/useToast";
 import { useTests } from "@/hooks/useTests";
 import {
   deleteTest,
@@ -42,6 +42,7 @@ const TeacherDrafts = () => {
         onNew={() => navigate("/teacher/drafts/new")}
         onPublish={(d) => setPublishing(d.id)}
         onLiveView={(d) => navigate(`/teacher/live?test=${d.id}`)}
+        onResults={(d) => navigate(`/teacher/results/${d.id}`)}
         onStartNow={(d) =>
           run(() => startTestNow(d.id), `"${d.title}" is now open to students`)
         }

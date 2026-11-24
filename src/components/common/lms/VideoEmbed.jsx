@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertTriangle, Play } from "lucide-react";
 
 // ── Video URL parser ──
-export const parseVideoUrl = (url) => {
+const parseVideoUrl = (url) => {
   if (!url) return null;
   const yt = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,

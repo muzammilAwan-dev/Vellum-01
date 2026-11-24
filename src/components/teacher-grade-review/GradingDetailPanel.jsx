@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
+import { REASON_MAX_LENGTH, needsReason } from "@/lib/audit";
 
 // ═══════════════════════════════════════════════════════════════
 // AI EVALUATION CHECKLIST
@@ -37,7 +38,13 @@ const CONFIDENCE_TONE = {
   high: { label: "High", cls: "border-success/30 bg-success-dim text-success" },
 };
 
-export const GradingDetailPanel = ({
+// The score/remark fields restart from the saved grade whenever another answer is
+// opened or the saved score/feedback changes (the key), without a reset effect.
+export const GradingDetailPanel = (props) => (
+  <GradingDetailForm key={`${props.g.id}|${props.g.score}|${props.g.feedback}`} {...props} />
+);
+
+const GradingDetailForm = ({
   g,
   onClose,
   onSave,
@@ -45,12 +52,8 @@ export const GradingDetailPanel = ({
 }) => {
   const [score, setScore] = useState(g.score ?? "");
   const [remark, setRemark] = useState(g.feedback ?? "");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setScore(g.score ?? "");
-    setRemark(g.feedback ?? "");
-  }, [g.id, g.score, g.feedback]);
 
   // Real rubric verdicts from the grader when there are any; otherwise a
   // rough estimate from the mark.
@@ -61,10 +64,20 @@ export const GradingDetailPanel = ({
       }))
     : buildRubricVerdict(Number(g.aiScore ?? g.score) || 0, g.maxScore);
   const changed = g.aiScore != null && Number(score) !== g.aiScore;
+  // Same rule the server enforces (lib/audit.js): a big move away from the AI's
+  // mark, or any change to a mark that students may already have seen.
+  const mustExplain = needsReason({
+    max: g.maxScore,
+    current: g.score,
+    ai: g.aiScore,
+    to: score === "" ? null : Number(score),
+    afterRelease: g.status === "reviewed" && Boolean(g.released),
+  });
+  const missingReason = mustExplain && !reason.trim();
   const save = async (final) => {
     setBusy(true);
     try {
-      await onSave?.(score === "" ? null : Number(score), remark, final);
+      await onSave?.(score === "" ? null : Number(score), remark, final, mustExplain ? reason.trim() : "");
     } finally {
       setBusy(false);
     }
@@ -122,7 +135,7 @@ export const GradingDetailPanel = ({
             </div>
             {g.flags > 0 && (
               <div className="mt-3 text-[12px] font-medium text-warning">
-                {g.flags} tab {g.flags === 1 ? "switch" : "switches"} during this test
+                {g.flags} flagged {g.flags === 1 ? "event" : "events"} during this test
               </div>
             )}
           </div>
@@ -182,7 +195,7 @@ export const GradingDetailPanel = ({
               Your mark
             </span>
             {changed && (
-              <span className="rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
+              <span className="whitespace-nowrap rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
                 Overridden (AI suggested {g.aiScore})
               </span>
             )}
@@ -210,6 +223,23 @@ export const GradingDetailPanel = ({
           </div>
         </div>
 
+        {mustExplain && (
+          <div className="mb-4">
+            <label htmlFor={`reason-${g.id}`} className="mb-1.5 block text-[12px] font-semibold text-ink-2">
+              Why are you changing this mark? <span className="font-normal text-ink-3">(required, kept in the audit log)</span>
+            </label>
+            <textarea
+              id={`reason-${g.id}`}
+              rows={2}
+              maxLength={REASON_MAX_LENGTH}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={g.released ? "This result may already be visible to the student" : "e.g. The answer also covers the second rubric point"}
+              className="w-full rounded-[var(--radius-container)] border border-rule-2 bg-sunken px-3.5 py-3 text-[13.5px] leading-relaxed text-ink focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
+        )}
+
         {/* Remark */}
         <textarea
           rows={3}
@@ -231,10 +261,10 @@ export const GradingDetailPanel = ({
             <span />
           )}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => save(false)} disabled={busy || score === ""} variant="outline">
+            <Button onClick={() => save(false)} disabled={busy || score === "" || missingReason} variant="outline">
               Save as draft
             </Button>
-            <Button onClick={() => save(true)} disabled={busy || score === ""}>
+            <Button onClick={() => save(true)} disabled={busy || score === "" || missingReason}>
               Accept &amp; continue
             </Button>
           </div>

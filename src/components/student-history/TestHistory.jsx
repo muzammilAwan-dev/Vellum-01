@@ -23,7 +23,7 @@ export const TestHistory = () => {
   const rows = data.done;
 
   return (
-    <div className="animate-[page-in_0.4s_ease-out]">
+    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
       <SectionHeader label="Test history" meta={rows.length ? `${rows.length}` : undefined} />
       {rows.length === 0 ? (
         <EmptyState
@@ -35,7 +35,7 @@ export const TestHistory = () => {
           <thead>
             <tr className="border-b border-rule">
               <Th>Test</Th>
-              <Th>Submitted</Th>
+              <Th className="max-narrow:hidden">Submitted</Th>
               <Th className="text-right">Result</Th>
               <Th>Status</Th>
               <Th className="w-24"></Th>
@@ -49,7 +49,7 @@ export const TestHistory = () => {
                 className="cursor-pointer border-b border-rule transition-colors last:border-0 hover:bg-raised/50"
               >
                 <Td className="font-medium text-ink">{test.title}</Td>
-                <Td>{formatDateTime(attempt.submittedAt)}</Td>
+                <Td className="whitespace-nowrap max-narrow:hidden">{formatDateTime(attempt.submittedAt)}</Td>
                 <Td className="text-right font-mono tabular-nums">
                   {released && totals ? `${totals.earned}/${totals.max}` : "—"}
                 </Td>

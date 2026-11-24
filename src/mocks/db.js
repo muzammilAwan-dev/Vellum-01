@@ -1,9 +1,14 @@
+import { QUESTION_BANK } from "./bankSeed";
 import { STUDENTS } from "@/data/users";
 import { createId } from "@/lib/id";
+import { seededRandom } from "@/lib/randomize";
 import { isChoice } from "@/lib/questions";
 import { buildQuestions, buildVariants } from "./generator";
 import { buildGrades } from "./grader";
+import { weakTopicMap } from "@/lib/analytics";
+import { DEFAULT_TOPICS } from "./topics";
 import { questionsFor, settingsOf } from "./engine";
+import { seedAudit } from "./auditSeed";
 
 // ═══════════════════════════════════════════════════════════════
 // FAKE DATABASE (dev only)
@@ -12,7 +17,7 @@ import { questionsFor, settingsOf } from "./engine";
 // the demo survives a refresh. Nothing in the app imports this: only
 // src/mocks/handlers.js reads and writes it.
 // ═══════════════════════════════════════════════════════════════
-const STORAGE_KEY = "vellum.mockdb.v4";
+const STORAGE_KEY = "vellum.mockdb.v10";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -118,7 +123,7 @@ const makeConfig = (mix, extra = {}) => ({
   ...extra,
 });
 
-const seedTest = (now, { title, mix, mode = "class", seed, ...over }) => {
+const seedTest = (now, { title, mix, mode = "class", seed, weak, ...over }) => {
   const config = makeConfig(mix, { mode, duration: over.duration ?? 30 });
   return baseTest(now, {
     id: createId(),
@@ -126,7 +131,7 @@ const seedTest = (now, { title, mix, mode = "class", seed, ...over }) => {
     mode,
     config,
     questionSet: mode === "class" ? buildQuestions(mix, { seed }) : null,
-    variants: mode === "personal" ? buildVariants(mix, STUDENTS, { seed }) : null,
+    variants: mode === "personal" ? buildVariants(mix, STUDENTS, { seed, weak }) : null,
     ...over,
   });
 };
@@ -186,8 +191,211 @@ const seedAttempt = (test, student, index) => {
   return attempt;
 };
 
+// ── past results (so analytics has a real history to work from) ──
+// Five finished, auto-graded tests (multiple choice + true/false) before
+// "Kinematics — Quiz". Each student's target % is met by getting the questions
+// from topics they're better at right first (with some deterministic noise), so
+// the topic profile is consistent but not absolute: Newton's Laws / Kinematics
+// high, Electromagnetism / Wave Optics low.
+const TOPIC_BIAS = Object.fromEntries(DEFAULT_TOPICS.map((t, i) => [t, 0.5 - i * 0.2]));
+const HISTORY = [
+  { title: "Foundations — Diagnostic", daysAgo: 42, seed: 7 },
+  { title: "Electromagnetism — Quiz 1", daysAgo: 35, seed: 8 },
+  { title: "Thermodynamics — Quiz 3", daysAgo: 28, seed: 9 },
+  { title: "Kinematics — Unit Test", daysAgo: 21, seed: 10 },
+  { title: "Newton's Laws — Quiz", daysAgo: 14, seed: 11 },
+];
+const HISTORY_SCORES = {
+  "Maya Okafor": [68, 74, 71, 80, 83],
+  "Sofia Lindqvist": [82, 85, 84, 88, 90],
+  "Priya Nair": [70, 72, 75, 76, 78],
+  "Jayden Park": [66, 70, 74, 73, 77],
+  "Adrian Bell": [55, 58, 52, 60, 57],
+  "Tomás Reyes": [48, 52, 50, 56, 54],
+};
+
+const seedHistoryAttempt = (test, student, target, index) => {
+  const questions = questionsFor(test, null);
+  const rand = seededRandom(`${student}|${test.title}`);
+  const rank = questions
+    .map((q) => ({ q, key: (TOPIC_BIAS[q.topic] ?? 0) + (rand() - 0.5) * 1.6 }))
+    .sort((a, b) => b.key - a.key);
+  // Fill with right answers, best-ranked first, until the target marks are reached.
+  const total = questions.reduce((n, q) => n + q.marks, 0);
+  const goal = Math.round((target / 100) * total);
+  const right = new Set();
+  let got = 0;
+  rank.forEach(({ q }) => {
+    if (got + q.marks <= goal) {
+      right.add(q.id);
+      got += q.marks;
+    }
+  });
+  const submittedAt = test.stoppedAt - (9 + index) * MINUTE;
+  const attempt = {
+    id: createId(),
+    testId: test.id,
+    student,
+    variantIndex: null,
+    questions,
+    startedAt: submittedAt - (20 - index) * MINUTE,
+    deadline: test.stoppedAt - 5 * MINUTE,
+    status: "submitted",
+    submittedAt,
+    submitReason: "manual",
+    flags: [],
+    answers: {},
+  };
+  questions.forEach((q) => {
+    attempt.answers[q.id] = right.has(q.id) ? q.correctIndex : (q.correctIndex + 1) % q.options.length;
+  });
+  attempt.grades = buildGrades(questions, attempt.answers, { aiGrading: false });
+  return attempt;
+};
+
+// ── courses & lessons (F9a) ──
+const COURSES_SEED = [
+  {
+    id: "crs-newton", subjectId: "sub-phys-11a", title: "Physics — Newtonian Mechanics",
+    lessons: [
+      { kind: "text", title: "Introduction to force and motion", duration: "8 min", body: "Force is any interaction that changes an object's motion. Newton's first law states that an object at rest stays at rest unless acted on by a net external force. Practically, this means that without a net force, velocity does not change: an object stays still if still, and keeps drifting at the same speed in the same direction if moving." },
+      { kind: "video", title: "Newton's three laws, worked examples", duration: "14 min", url: "https://www.youtube.com/watch?v=kKKM8Y-u7ds", body: "A visual walkthrough of the three laws using classroom demonstrations." },
+      { kind: "file", title: "Free body diagram reference sheet.pdf", duration: "2 pages", url: "https://res.cloudinary.com/demo/image/upload/sample.pdf", body: "A one-page reference you can keep on your desk when solving problems." },
+      { kind: "text", title: "Applying F = ma to real problems", duration: "12 min", body: "Once you can draw a free body diagram, the algebra is straightforward. Identify all forces, resolve them by axis, sum them, and solve for the unknown. Remember that ΣF = ma applies component by component." },
+      { kind: "video", title: "Common mistakes with sign conventions", duration: "9 min", url: "https://www.youtube.com/watch?v=Z7XeTUvK6BU", body: "The five most common errors students make when assigning signs to forces and accelerations." },
+    ],
+  },
+  {
+    id: "crs-waves", subjectId: "sub-phys-11a", title: "Physics — Waves & Optics",
+    lessons: [
+      { kind: "text", title: "Wave properties and terminology", duration: "10 min", body: "Wavelength, frequency, amplitude, and speed are the four properties every wave has. The relationship v = fλ ties them together." },
+      { kind: "video", title: "Refraction and Snell's law", duration: "16 min", url: "https://www.youtube.com/watch?v=kJ4i5v6j1XU", body: "How light bends when it crosses between media, and how to use Snell's law to calculate the angles.", testTitle: "Wave Optics — Quiz 2" },
+    ],
+  },
+  {
+    id: "crs-bonding", subjectId: "sub-chem-11a", title: "Chemistry — Bonding & Structure",
+    lessons: [
+      { kind: "text", title: "Ionic vs covalent bonds", duration: "11 min", body: "Ionic bonds form between metals and non-metals through electron transfer. Covalent bonds form between non-metals through electron sharing." },
+    ],
+  },
+];
+// How many lessons of each course each student has finished (in course order).
+const PROGRESS_SEED = {
+  "Maya Okafor": { "crs-newton": 3, "crs-waves": 1, "crs-bonding": 0 },
+  "Sofia Lindqvist": { "crs-newton": 5, "crs-waves": 2, "crs-bonding": 1 },
+  "Priya Nair": { "crs-newton": 4, "crs-waves": 1, "crs-bonding": 0 },
+  "Jayden Park": { "crs-newton": 3, "crs-waves": 1, "crs-bonding": 0 },
+  "Adrian Bell": { "crs-newton": 2, "crs-waves": 0, "crs-bonding": 0 },
+  "Tomás Reyes": { "crs-newton": 1, "crs-waves": 0, "crs-bonding": 0 },
+};
+
+const seedCourses = (now, tests) => {
+  const courses = [];
+  const lessons = [];
+  const progress = [];
+  COURSES_SEED.forEach((c, ci) => {
+    courses.push({ id: c.id, subjectId: c.subjectId, title: c.title, createdAt: now - (30 - ci) * DAY });
+    c.lessons.forEach((l, i) => {
+      const { testTitle, ...rest } = l;
+      lessons.push({
+        id: `${c.id}-l${i + 1}`,
+        courseId: c.id,
+        order: i,
+        url: "",
+        testId: testTitle ? (tests.find((t) => t.title === testTitle)?.id ?? null) : null,
+        createdAt: now - (30 - ci) * DAY,
+        ...rest,
+      });
+    });
+  });
+  Object.entries(PROGRESS_SEED).forEach(([student, perCourse], si) =>
+    Object.entries(perCourse).forEach(([courseId, n]) =>
+      lessons
+        .filter((l) => l.courseId === courseId)
+        .slice(0, n)
+        .forEach((l, k) => progress.push({ lessonId: l.id, student, doneAt: now - (6 - si) * DAY - k * HOUR })),
+    ),
+  );
+  return { courses, lessons, progress };
+};
+
+// ── class discussion (F9b) ──
+// [title, body, author, tag, ageHours, pinned, resolved, replies: [author, body, ageHours][]]
+const THREADS_SEED = [
+  ["Lens sign convention — when is v negative?", "In the lens equation 1/f = 1/v − 1/u, I keep getting confused about when the image distance is negative. Can someone explain with a concrete example?", "Tomás Reyes", "Question", 2, false, false, [
+    ["Maya Okafor", "I always check: if the image forms on the same side as the object, it's virtual, so v is negative. Otherwise positive.", 1.2],
+    ["Dr. R. Chen", "Maya's rule is correct for a single thin lens. The cleanest way is to draw the ray diagram first. The geometry tells you which side the image is on before you ever write an equation.", 0.75],
+  ]],
+  ["Extra practice problems for Wave Optics", "I've uploaded a 4-page set of extra problems focused on sign conventions and image formation. The answers are on the last page. Try them before Thursday's test.", "Dr. R. Chen", "Resource", 26, true, false, [
+    ["Priya Nair", "Thanks, these are perfect. Q7 was tricky but I got it after looking at the diagram again.", 22],
+  ]],
+  ["Study group for the mid-term?", "Would anyone want to meet in the library on Saturday morning to review Newton's Laws together? Thinking 10 AM, 90 minutes.", "Sofia Lindqvist", "Discussion", 72, false, false, [
+    ["Jayden Park", "Count me in.", 70],
+    ["Adrian Bell", "Same. I'll bring the past papers.", 52],
+    ["Tomás Reyes", "Can we push to 11? I have something until 10:30.", 50],
+  ]],
+  ["Reminder: test on Thursday covers Units 3 and 4", "Reminder that Thursday's test covers thermodynamics and waves. Format: 10 MCQs, 5 short answers, 2 long answers. Bring your calculators.", "Dr. R. Chen", "Announcement", 96, true, false, []],
+  ["Understanding adiabatic vs isothermal — cleared up", "I was confused about the difference but after doing the two problems from Section 5.3 it clicked. In adiabatic processes Q = 0; in isothermal processes ΔU = 0.", "Priya Nair", "Discussion", 120, false, true, [
+    ["Dr. R. Chen", "Exactly right, Priya. Marking this resolved.", 119],
+  ]],
+];
+
+const seedThreads = (now, people) => {
+  const idOf = (name) => people.find((u) => u.name === name)?.id ?? null;
+  const roleOf = (name) => people.find((u) => u.name === name)?.role ?? "student";
+  return THREADS_SEED.map(([title, body, author, tag, age, pinned, resolved, replies], i) => {
+    const replyRows = replies.map(([name, text, rAge], k) => ({
+      id: `th${i + 1}-r${k + 1}`,
+      author: name,
+      authorId: idOf(name),
+      role: roleOf(name),
+      body: text,
+      createdAt: now - rAge * HOUR,
+    }));
+    return {
+      id: `th${i + 1}`,
+      classId: "cls-11a",
+      title,
+      body,
+      author,
+      authorId: idOf(author),
+      role: roleOf(author),
+      tag,
+      pinned,
+      resolved,
+      createdAt: now - age * HOUR,
+      lastActivityAt: now - (replyRows.length ? Math.min(...replies.map((r) => r[2])) : age) * HOUR,
+      replies: replyRows,
+    };
+  });
+};
+
 const seed = () => {
   const now = Date.now();
+  // Past results first: personalized variants lean on weak topics derived from them.
+  const past = HISTORY.map((h) =>
+    seedTest(now, {
+      title: h.title,
+      seed: h.seed,
+      mix: [
+        { type: "mcq", count: 10, marks: 2 },
+        { type: "truefalse", count: 10, marks: 1 },
+      ],
+      status: "published",
+      publishedAt: now - (h.daysAgo + 1) * DAY,
+      stoppedAt: now - h.daysAgo * DAY,
+      createdAt: now - (h.daysAgo + 2) * DAY,
+      updatedAt: now - h.daysAgo * DAY,
+    }),
+  );
+  const historyAttempts = past.flatMap((test, ti) =>
+    STUDENTS.map((s, i) => seedHistoryAttempt(test, s.name, HISTORY_SCORES[s.name]?.[ti] ?? 65, i)),
+  );
+  const weak = weakTopicMap({
+    tests: past,
+    attempts: historyAttempts,
+    students: STUDENTS.map((s) => ({ id: s.name, name: s.name, roll: s.roll })),
+  });
   const tests = [
     seedTest(now, {
       title: "Wave Optics — Quiz 2",
@@ -218,6 +426,7 @@ const seed = () => {
       title: "Thermodynamics — Mid-term",
       seed: 2,
       mode: "personal",
+      weak,
       duration: 60,
       mix: [
         { type: "mcq", count: 6, marks: 2 },
@@ -260,21 +469,93 @@ const seed = () => {
     }),
   ];
   const finished = tests.find((t) => t.title === "Kinematics — Quiz");
-  return {
-    version: 4,
+  tests.push(...past);
+  const lms = seedCourses(now, tests);
+  // Two more finished written tests in the other classes (graded by the other
+  // teachers) so the admin audit screens have real history; see auditFixture.js.
+  const fixtureTests = [
+    seedTest(now, {
+      title: "Forces — Written Check",
+      subjectId: "sub-phys-10a",
+      classId: "cls-10a",
+      cls: "10A",
+      seed: 12,
+      mix: [
+        { type: "mcq", count: 3, marks: 2 },
+        { type: "short", count: 3, marks: 4 },
+      ],
+      status: "published",
+      publishedAt: now - 6 * DAY,
+      stoppedAt: now - 5 * DAY,
+      createdAt: now - 7 * DAY,
+      updatedAt: now - 5 * DAY,
+    }),
+    seedTest(now, {
+      title: "Energy — Written Check",
+      subjectId: "sub-phys-11b",
+      classId: "cls-11b",
+      cls: "11B",
+      seed: 13,
+      mix: [
+        { type: "mcq", count: 2, marks: 2 },
+        { type: "short", count: 4, marks: 3 },
+      ],
+      status: "published",
+      publishedAt: now - 4 * DAY,
+      stoppedAt: now - 3 * DAY,
+      createdAt: now - 5 * DAY,
+      updatedAt: now - 3 * DAY,
+    }),
+  ];
+  tests.push(...fixtureTests);
+  const namesIn = (classId) => EXTRA_STUDENTS.filter((s) => s[0] === classId).map((s) => s[2]);
+  const fixtureAttempts = [
+    ...namesIn("cls-10a").map((name, i) => seedAttempt(fixtureTests[0], name, i)),
+    ...namesIn("cls-11b").map((name, i) => seedAttempt(fixtureTests[1], name, i)),
+  ];
+  const state = {
+    version: 10,
+    bank: QUESTION_BANK.map((q, i) => ({
+      id: `bq-${q.id}`,
+      subjectId: "sub-phys-11a",
+      text: q.text,
+      topic: q.topic,
+      type: q.type,
+      marks: q.marks,
+      options: q.options ?? null,
+      correctIndex: q.options ? (q.id === "q3" ? 0 : 1) : null, // q1 = 4 m/s², q3 = internal energy
+      expectedAnswer: q.expectedAnswer ?? "",
+      rubric: q.rubric ?? [],
+      source: q.source,
+      used: q.used,
+      lastUsed: q.used ? now - (i * 3 + 2) * 86_400_000 : null,
+      createdAt: now - (i * 3 + 20) * 86_400_000,
+      updatedAt: now - (i * 3 + 20) * 86_400_000,
+    })),
+    materials: [],
     users: seedUsers(),
     classes: CLASSES_SEED.map((c) => ({ ...c })),
     subjects: subjectsSeed(now),
+    courses: lms.courses,
+    lessons: lms.lessons,
+    lessonProgress: lms.progress,
+    threads: seedThreads(now, seedUsers()),
     tests,
-    attempts: STUDENTS.map((s, i) => seedAttempt(finished, s.name, i)),
+    attempts: [
+      ...STUDENTS.map((s, i) => seedAttempt(finished, s.name, i)),
+      ...historyAttempts,
+      ...fixtureAttempts,
+    ],
   };
+  seedAudit(state);
+  return state;
 };
 
 // ── persistence ──
 const load = () => {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
-    return parsed?.version === 4 && Array.isArray(parsed.tests) ? parsed : null;
+    return parsed?.version === 10 && Array.isArray(parsed.tests) ? parsed : null;
   } catch {
     return null;
   }
@@ -302,7 +583,22 @@ export const resetMockData = () => {
   persist();
 };
 
+/**
+ * Demo helper: quietly alter one stored audit event so the integrity check can be
+ * shown catching it. Returns the event number, or null if there is no such event.
+ * Run `__tamperVellumAudit(5)` in the console, then press "Verify now" on the
+ * admin Audit overview. `__resetVellum()` puts everything back.
+ */
+export const tamperAuditEvent = (seq = 3) => {
+  const event = db().auditLog?.[seq - 1];
+  if (!event) return null;
+  event.meta = { ...event.meta, edited: true };
+  persist();
+  return seq;
+};
+
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", persist);
   window.__resetVellum = resetMockData;
+  window.__tamperVellumAudit = tamperAuditEvent;
 }

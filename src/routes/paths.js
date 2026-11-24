@@ -13,6 +13,9 @@ export const VIEW_PATHS = {
     admin:    "/admin",
     users:    "/admin/users",
     classes:  "/admin/classes",
+    institution:   "/admin/institution",
+    audit:    "/admin/audit",
+    profile:  "/admin/profile",
   },
   teacher: {
     home:      "/teacher",
@@ -25,8 +28,10 @@ export const VIEW_PATHS = {
     live:      "/teacher/live",
     review:    "/teacher/review",
     analytics: "/teacher/analytics",
+    audit:     "/teacher/audit",
     lms:       "/teacher/lms",
     chat:      "/teacher/chat",
+    profile:   "/teacher/profile",
   },
   student: {
     home:      "/student",
@@ -35,6 +40,7 @@ export const VIEW_PATHS = {
     lms:       "/student/lms",
     chat:      "/student/chat",
     analytics: "/student/analytics",
+    profile:   "/student/profile",
   },
 };
 
