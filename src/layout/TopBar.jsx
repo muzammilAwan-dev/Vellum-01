@@ -69,6 +69,7 @@ export const TopBar = ({ onSearch }) => {
   const title = [...matches].reverse().find((m) => m.handle?.title)?.handle?.title || "";
 
   const action = getActionFor(location.pathname, role, navigate);
+  const TitleTag = role === "admin" ? "p" : "h1";
 
   return (
     <header
@@ -76,20 +77,23 @@ export const TopBar = ({ onSearch }) => {
         "no-print sticky top-0 z-20 hidden h-16 shrink-0 items-center gap-3 border-b border-rule bg-bg/90 px-10 backdrop-blur-sm tablet:flex"
       )}
     >
-      <h1 className="truncate font-serif text-[19px] font-semibold tracking-[-0.015em] text-ink">
+      {/* Admin pages render their own <h1> (PageHeader), so the bar shows the same name as plain
+          text: one h1 per page. Other roles still rely on this one until their U1 pass. */}
+      <TitleTag className="truncate font-serif text-[19px] font-semibold tracking-[-0.015em] text-ink">
         {title}
-      </h1>
+      </TitleTag>
 
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
           onClick={onSearch}
-          className="flex h-10 min-w-[40px] items-center gap-2.5 rounded-full border border-rule-2 bg-surface px-3.5 text-[13px] text-ink-3 transition-colors hover:border-rule-3 hover:text-ink lg:w-[300px]"
-          aria-label="Open search"
+          className="flex h-10 min-w-[40px] items-center gap-2.5 rounded-full border border-rule-2 bg-surface px-3.5 text-[13px] text-ink-3 transition-colors hover:border-rule-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40 lg:w-[300px]"
+          aria-keyshortcuts="Control+K Meta+K"
         >
-          <Search size={15} />
-          <span className="hidden lg:inline">Search anything</span>
-          <kbd className="ml-auto hidden rounded-md border border-rule-2 bg-raised px-1.5 py-0.5 text-[12px] font-semibold text-ink-3 lg:pointer-fine:inline">
+          <Search size={15} aria-hidden="true" />
+          {/* The name is the visible text (WCAG 2.5.3); below lg the text is visually hidden but still the name. */}
+          <span className="sr-only lg:not-sr-only">Search anything</span>
+          <kbd aria-hidden="true" className="ml-auto hidden rounded-md border border-rule-2 bg-raised px-1.5 py-0.5 text-[12px] font-semibold text-ink-3 lg:pointer-fine:inline">
             {shortcutLabel("K")}
           </kbd>
         </button>

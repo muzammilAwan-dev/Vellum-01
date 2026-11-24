@@ -43,7 +43,7 @@ export const AuditTestList = ({ tests }) => {
                   e.stopPropagation();
                   open(t);
                 }}
-                className="rounded-sm text-left font-medium text-ink hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="-my-1 inline-flex min-h-8 items-center rounded-sm text-left font-medium text-ink hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 {t.title}
               </button>

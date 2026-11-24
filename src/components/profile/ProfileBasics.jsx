@@ -67,7 +67,9 @@ export const ProfileBasics = ({ profile }) => {
         )}
       </dl>
       <p className="mb-6 text-[12px] text-ink-3">
-        Your name, email, role and class are managed by your administrator.
+        {profile.role === "admin"
+          ? "Your name and email are part of the administrator account. Ask whoever set up this institution's Vellum to change them."
+          : "Your name, email, role and class are managed by your administrator."}
       </p>
 
       <form onSubmit={save} noValidate>

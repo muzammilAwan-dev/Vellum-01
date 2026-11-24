@@ -2,18 +2,25 @@ import { cn } from "@/lib/cn";
 
 export const ChipRow = ({ children }) => <div className="flex flex-wrap gap-1.5">{children}</div>;
 
-export const Chip = ({ active, onClick, children, dashed }) => (
+// `check`: multi-select chips show a tick when on, so the state is not colour alone.
+export const Chip = ({ active, onClick, children, dashed, check }) => (
   <button
     type="button"
     onClick={onClick}
+    aria-pressed={active === undefined ? undefined : !!active}
     className={cn(
-      "whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-200",
+      "inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring/40",
       dashed && "border-dashed",
       active
         ? "border-primary bg-primary text-on-primary shadow-[var(--shadow-primary)]"
         : "border-rule-2 text-ink-2 hover:border-rule-3 hover:bg-raised hover:text-ink"
     )}
   >
+    {check && active && (
+      <svg viewBox="0 0 12 12" aria-hidden="true" className="-ml-1 size-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 6.2l2.3 2.3 4.7-4.9" />
+      </svg>
+    )}
     {children}
   </button>
 );

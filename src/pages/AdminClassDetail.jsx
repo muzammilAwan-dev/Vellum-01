@@ -43,7 +43,6 @@ const AdminClassDetail = () => {
         cls={cls}
         roster={rosterRes.data}
         teachers={users.filter((u) => u.role === "teacher")}
-        onBack={back}
         onAddStudent={() => setAddOpen(true)}
         onUpdateClass={(data) => updateClass(cls.id, data)}
         onDeleteClass={() =>
@@ -82,6 +81,7 @@ const AdminClassDetail = () => {
       <AddStudentModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
+        className={cls.name}
         unassigned={users.filter((u) => u.role === "student" && !u.classId)}
         onCreate={async ({ name, email }) => {
           const made = await createUser({ name, email, role: "student", classId: cls.id });

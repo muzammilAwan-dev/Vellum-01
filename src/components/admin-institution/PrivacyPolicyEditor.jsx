@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ExternalLink } from "lucide-react";
-import { ConfirmDialog, LoadingButton, PageError, inputClass } from "@/components/common";
+import { ConfirmDialog, LoadingButton, Notice, PageError, Segmented, inputClass } from "@/components/common";
+import { SettingsSection } from "./InstitutionForm";
 import { PolicyDocument } from "@/components/privacy/PolicyDocument";
 import { Button } from "@/components/ui/button";
 import { updatePrivacy } from "@/api/institution";
@@ -43,22 +44,28 @@ const Editor = ({ policy, institution }) => {
   };
 
   return (
-    <section aria-labelledby="privacy-title" className="mt-12 border-t border-rule pt-8">
-      <h2 id="privacy-title" className="mb-1.5 font-serif text-[22px] font-semibold tracking-[-0.01em] text-ink">Privacy policy</h2>
-      <p className="mb-4 max-w-[60ch] text-[14px] leading-relaxed text-ink-2">
-        Shown to everyone on a public page, linked from the sign-in page, every profile and the sidebar. Your institution decides what it says.
-      </p>
+    <SettingsSection
+      id="privacy"
+      title="Privacy policy"
+      description="Shown to everyone on a public page, linked from the sign-in page, every profile and the sidebar. Your institution decides what it says."
+      aside={
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold", policy.reviewed ? "bg-success-dim text-success" : "bg-warning-dim text-warning")}>
+          <span aria-hidden="true" className={cn("size-1.5 rounded-full", policy.reviewed ? "bg-success" : "bg-warning")} />
+          {policy.reviewed ? `Reviewed · version ${policy.version}` : "Draft"}
+        </span>
+      }
+    >
       {!policy.reviewed && (
-        <p role="note" className="mb-4 rounded-[var(--radius-control)] border border-warning/40 bg-warning-dim px-4 py-3 text-[13px] leading-relaxed text-ink">
+        <Notice tone="warning" className="mb-4 text-[13px]">
           Draft. This wording is a template, not legal advice. Have your own legal adviser review it, then tick the box below.
-        </p>
+        </Notice>
       )}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant={preview ? "outline" : "default"} aria-pressed={!preview} onClick={() => setPreview(false)}>Edit</Button>
-        <Button type="button" size="sm" variant={preview ? "default" : "outline"} aria-pressed={preview} onClick={() => setPreview(true)}>Preview</Button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Segmented label="Editor view" size="sm" value={preview ? "preview" : "edit"} onChange={(v) => setPreview(v === "preview")} options={[{ value: "edit", label: "Edit" }, { value: "preview", label: "Preview" }]} />
         <Button type="button" size="sm" variant="ghost" onClick={() => (text.trim() + "\n" === PRIVACY_TEMPLATE ? null : setAsking(true))} disabled={text.trim() + "\n" === PRIVACY_TEMPLATE}>Start from the template</Button>
-        <Link to="/privacy" target="_blank" rel="noopener" className="ms-auto inline-flex items-center gap-1 text-[12.5px] text-ink-2 underline underline-offset-2 hover:text-ink">
-          Public page <ExternalLink size={12} aria-hidden />
+        <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="ms-auto inline-flex min-h-8 items-center gap-1 rounded-sm px-1 text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40">
+          Open public page <ExternalLink size={13} aria-hidden="true" />
+          <span className="sr-only">(opens in a new tab)</span>
         </Link>
       </div>
       {preview ? (
@@ -79,6 +86,7 @@ const Editor = ({ policy, institution }) => {
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
             Plain text: a line starting with <code>## </code> is a heading, <code>- </code> a bullet, a blank line a new paragraph. Placeholders filled in from your institution settings: {PRIVACY_PLACEHOLDERS.map((p) => `{{${p}}}`).join(", ")}.
+            {" "}Text between <code>{"{{#city}}"}</code> and <code>{"{{/city}}"}</code> (or <code>{"{{#photos}}"}</code> … <code>{"{{/photos}}"}</code>) is shown only when the city is filled in (or student photos are on).
           </p>
         </>
       )}
@@ -88,7 +96,7 @@ const Editor = ({ policy, institution }) => {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={cn(inputClass, "mt-1.5")} />
         </label>
         <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[14px] text-ink tablet:self-end pointer-coarse:min-h-11">
-          <input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} className="size-4 accent-[var(--color-primary)]" />
+          <input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-primary)]" />
           Our legal adviser has reviewed this policy
         </label>
       </div>
@@ -108,7 +116,7 @@ const Editor = ({ policy, institution }) => {
         onConfirm={useTemplate}
         onClose={() => setAsking(false)}
       />
-    </section>
+    </SettingsSection>
   );
 };
 
@@ -117,6 +125,6 @@ export const PrivacyPolicyEditor = () => {
   const { data: policy, error, refetch } = usePrivacy();
   const { data: institution } = useInstitution();
   if (error) return <PageError error={error} onRetry={refetch} />;
-  if (!policy?.source || !institution) return <div className="mt-12 h-40 animate-pulse rounded-[var(--radius-container)] bg-rule/60" aria-hidden />;
+  if (!policy?.source || !institution) return <div className="h-40 animate-pulse rounded-[var(--radius-container)] bg-rule/60" aria-hidden />;
   return <Editor key={`${policy.version}-${policy.updatedAt}-${policy.reviewed}`} policy={policy} institution={institution} />;
 };

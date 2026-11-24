@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Chip, ChipRow, Field, ModalShell, inputClass } from "@/components/common";
+import { Chip, ChipRow, Field, FieldGroup, ModalShell, inputClass } from "@/components/common";
 import { useToast } from "@/context/useToast";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +16,7 @@ export const CreateClassModal = ({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [assigned, setAssigned] = useState([]);
+  const [error, setError] = useState(null);
 
   if (!open) return null;
   const toggle = (t) =>
@@ -23,19 +24,26 @@ export const CreateClassModal = ({
   const reset = () => {
     setName("");
     setAssigned([]);
+    setError(null);
   };
-  const submit = async () => {
+  const close = () => {
+    reset();
+    onClose();
+  };
+  const submit = async (ev) => {
+    ev?.preventDefault();
     if (!name.trim()) {
-      toast.push("Class name is required", "error");
+      setError("Enter a class name, e.g. Grade 12 — Section C");
+      document.getElementById("create-class-name")?.focus();
       return;
     }
     setBusy(true);
     try {
-      await onCreate?.({ name, teacherIds: assigned });
-      reset();
-      onClose();
+      await onCreate?.({ name: name.trim(), teacherIds: assigned });
+      close();
     } catch (err) {
-      toast.push(err.message || "Couldn't create the class", "error");
+      if (err.code === "DUPLICATE_CLASS") setError(err.message);
+      else toast.push(err.message || "Couldn't create the class", "error");
     } finally {
       setBusy(false);
     }
@@ -44,37 +52,40 @@ export const CreateClassModal = ({
   return (
     <ModalShell
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Create class"
+      description="The short code (like 11A) is made from the name."
       maxWidth="520px"
       footer={
         <>
-          <Button
-            onClick={onClose} variant="ghost"
-          >
+          <Button onClick={close} variant="ghost">
             Cancel
           </Button>
-          <Button
-            onClick={submit}
-            disabled={busy}
-          >
-            Create class
+          <Button type="submit" form="create-class-form" disabled={busy}>
+            {busy ? "Creating…" : "Create class"}
           </Button>
         </>
       }
     >
-      <Field label="Class name">
+      <form id="create-class-form" onSubmit={submit} noValidate>
+      <Field label="Class name" error={error}>
         <input
+          id="create-class-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null);
+          }}
+          aria-invalid={error ? true : undefined}
+          autoComplete="off"
           placeholder="e.g. Grade 12 — Section C"
           autoFocus
           className={inputClass}
         />
       </Field>
-      <Field
+      <FieldGroup
         label="Assign teachers"
-        hint="Students can be enrolled after the class is created"
+        hint="Students can be enrolled after the class is created."
       >
         <ChipRow>
           {teachers.length === 0 && (
@@ -85,6 +96,7 @@ export const CreateClassModal = ({
           {teachers.map((t) => (
             <Chip
               key={t.id}
+              check
               active={assigned.includes(t.id)}
               onClick={() => toggle(t.id)}
             >
@@ -92,7 +104,9 @@ export const CreateClassModal = ({
             </Chip>
           ))}
         </ChipRow>
-      </Field>
+      </FieldGroup>
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+      </form>
     </ModalShell>
   );
 };

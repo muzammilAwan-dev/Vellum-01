@@ -1,22 +1,26 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
-import { useNavigate } from "react-router";
+import { Layers, Plus } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { ClassCard } from "./ClassCard";
 import { CreateClassModal } from "./CreateClassModal";
 import { createClass, deleteClass } from "@/api/admin";
-import { Bento, ConfirmDialog, PageError, PageLoading } from "@/components/common";
+import { ConfirmDialog, EmptyState, PageError, PageFrame, PageHeader, PageLoading } from "@/components/common";
+import { ActionMenu } from "@/components/ui/menu";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/context/useToast";
 import { useUsers } from "@/hooks/useAdmin";
 import { useClasses } from "@/hooks/useSubjects";
-import { Button } from "@/components/ui/button";
 
 // ═══════════════════════════════════════════════════════════════
-// ADMIN CLASSES
+// ADMIN CLASSES — one card per class; the card opens the roster, the menu holds Delete.
 // ═══════════════════════════════════════════════════════════════
 export const ClassList = () => {
   const toast = useToast();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  // ?new=1 (from the admin home or the search menu) opens the form; closing removes it.
+  const [createFlag, setCreateOpen] = useState(false);
+  const createOpen = createFlag || params.get("new") === "1";
   const [confirmState, setConfirmState] = useState(null);
-  const navigate = useNavigate();
   const classesRes = useClasses();
   const usersRes = useUsers();
 
@@ -27,96 +31,62 @@ export const ClassList = () => {
   }
   const classes = classesRes.data ?? [];
   const teacherChoices = (usersRes.data ?? []).filter((u) => u.role === "teacher");
+  const students = classes.reduce((n, c) => n + c.studentCount, 0);
 
-  const openDetail = (c) => navigate(`/admin/classes/${c.id}`);
+  const askDelete = (c) =>
+    setConfirmState({
+      title: `Delete "${c.name}"?`,
+      message: `This removes the class, unassigns its ${c.studentCount} students and ${c.teachers.length} teacher(s) and removes its ${c.subjectCount} subjects. Their accounts stay active. A class can't be deleted while it has tests. This cannot be undone.`,
+      confirmLabel: "Delete class",
+      onConfirm: async () => {
+        try {
+          await deleteClass(c.id);
+          toast.push(`Deleted "${c.name}"`, "info");
+        } catch (err) {
+          toast.push(err.message || "Couldn't delete the class", "error");
+        }
+      },
+    });
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        Administration <span className="text-ink-3">/</span> Classes
-      </div>
+    <PageFrame>
+      <PageHeader
+        crumbs={[{ label: "Administration", to: "/admin" }, { label: "Classes" }]}
+        title="Classes"
+        intro={`${classes.length} ${classes.length === 1 ? "class" : "classes"} · ${students} students enrolled. Open a class to see its roster, teachers and settings.`}
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus size={15} aria-hidden="true" /> Create class
+          </Button>
+        }
+      />
 
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Classes
-          </h1>
-          <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            Assign teachers, enroll students, keep sections organized. Click a
-            class to see its full roster.
-          </p>
-        </div>
-        <Button
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus size={14} /> Create class
-        </Button>
-      </div>
-
-      <div className="grid gap-4 tablet:grid-cols-2 lg:grid-cols-3 lg:gap-5">
-        {classes.map((c) => (
-          <Bento
-            key={c.id}
-            onClick={() => openDetail(c)}
-            className="group cursor-pointer hover:-translate-y-1 hover:shadow-[var(--shadow-elevated)]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-primary-dim font-mono text-[12px] font-bold tracking-wider text-primary">
-                {c.code}
-              </div>
-              <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmState({
-                      title: `Delete "${c.name}"?`,
-                      message: `This removes the class and unassigns its ${c.studentCount} students and ${c.teachers.length} teacher(s) and removes its ${c.subjectCount} subjects. Their accounts stay active. It can't be deleted while it has tests. This cannot be undone.`,
-                      confirmLabel: "Delete class",
-                      onConfirm: async () => {
-                        try {
-                          await deleteClass(c.id);
-                          toast.push(`Deleted "${c.name}"`, "info");
-                        } catch (err) {
-                          toast.push(err.message || "Couldn't delete the class", "error");
-                        }
-                      },
-                    });
-                  }}
-                  className="rounded-[var(--radius-control)] px-2 py-0.5 text-[12px] font-medium text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-auto pt-6">
-              <div className="font-display text-[17px] font-semibold tracking-[-0.01em] text-ink">
-                {c.name}
-              </div>
-              <div className="mt-1 font-mono text-[12.5px] text-ink-3">
-                <b className="font-semibold text-ink">{c.studentCount}</b> students
-                · <b className="font-semibold text-ink">{c.subjectCount}</b>{" "}
-                subjects
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {c.teachers.map((t) => (
-                <span title={t.name}
-                  key={t.id}
-                  className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-rule-2 bg-surface/60 px-2 py-0.5 text-[12px] font-medium text-ink-2"
-                >
-                  {t.name}
-                </span>
-              ))}
-            </div>
-          </Bento>
-        ))}
-      </div>
+      {classes.length === 0 ? (
+        <EmptyState
+          icon={<Layers size={20} aria-hidden="true" />}
+          title="No classes yet"
+          body="Create a class, assign its teachers, then enroll students."
+          action="Create class"
+          onAction={() => setCreateOpen(true)}
+        />
+      ) : (
+        <ul className="grid gap-4 tablet:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+          {classes.map((c) => (
+            <li key={c.id}>
+              <ClassCard cls={c} level={2}>
+                <ActionMenu label={`More actions for ${c.name}`} items={[{ id: "delete", label: "Delete class", danger: true, onSelect: () => askDelete(c) }]} />
+              </ClassCard>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <CreateClassModal
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
+        onClose={() => {
+          setCreateOpen(false);
+          if (params.get("new")) setParams(new URLSearchParams(), { replace: true });
+        }}
         onCreate={async (data) => {
           const made = await createClass(data);
           toast.push(`Class "${made.name}" created`, "success");
@@ -131,6 +101,6 @@ export const ClassList = () => {
         onConfirm={() => confirmState?.onConfirm?.()}
         onClose={() => setConfirmState(null)}
       />
-    </div>
+    </PageFrame>
   );
 };

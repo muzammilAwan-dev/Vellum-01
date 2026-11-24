@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, X } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router";
 import { ClassSwitcher } from "./ClassSwitcher";
 import { SubjectSwitcher } from "./SubjectSwitcher";
@@ -8,6 +8,7 @@ import { Avatar, InstitutionMark } from "@/components/common";
 import { useApp } from "@/context/useApp";
 import { useToast } from "@/context/useToast";
 import { useIsDesktop } from "@/hooks/useMediaQuery";
+import { useModalA11y } from "@/hooks/useModalA11y";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { useStudentTests } from "@/hooks/useAttempts";
 import { useMyCourses } from "@/hooks/useCourses";
@@ -27,6 +28,10 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
   // shows, even if the preference was saved on a wide window.
   const isDesktop = useIsDesktop();
   const collapsed = collapsedPref && isDesktop;
+  // Phones/tablets: the drawer is a modal dialog while open (Escape, focus trap, focus returns
+  // to the menu button) and inert while closed, so Tab never walks into the hidden drawer.
+  const drawer = !isDesktop;
+  const drawerRef = useModalA11y(drawer && mobileOpen, onCloseMobile);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -83,6 +88,11 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
         />
       )}
       <aside
+        ref={drawer ? drawerRef : undefined}
+        role={drawer && mobileOpen ? "dialog" : undefined}
+        aria-modal={drawer && mobileOpen ? true : undefined}
+        aria-label={drawer ? "Navigation" : undefined}
+        inert={drawer && !mobileOpen ? true : undefined}
         className={cn(
           // Desktop: pinned to the viewport (sticky + full height) so it never scrolls with the page.
           "no-print sticky top-0 flex h-dvh flex-col overflow-hidden border-r border-sidebar-rule bg-sidebar-bg",
@@ -112,7 +122,8 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
               collapsed && "tablet:flex-none tablet:justify-center",
             )}
             title="Home"
-            aria-label="Home"
+            // The accessible name starts with the visible text (WCAG 2.5.3 label in name).
+            aria-label={collapsed || !institution?.shortName ? "Home" : `${institution.shortName}, home`}
           >
             <span className="grid size-7 shrink-0 place-items-center text-sidebar-accent">
               <InstitutionMark size={28} />
@@ -123,6 +134,17 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
               </span>
             )}
           </button>
+          {drawer && (
+            <button
+              type="button"
+              data-autofocus
+              onClick={onCloseMobile}
+              className="grid size-10 shrink-0 place-items-center rounded-lg border border-sidebar-rule text-sidebar-ink-2 transition-colors hover:bg-sidebar-hover hover:text-sidebar-ink focus-visible:outline-2 focus-visible:outline-sidebar-accent"
+              aria-label="Close navigation menu"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          )}
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}

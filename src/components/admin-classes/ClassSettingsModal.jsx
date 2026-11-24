@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Chip, ChipRow, Field, ModalShell, inputClass } from "@/components/common";
+import { Chip, ChipRow, Field, FieldGroup, ModalShell, inputClass } from "@/components/common";
 import { useToast } from "@/context/useToast";
 import { Button } from "@/components/ui/button";
 
@@ -25,12 +25,15 @@ const ClassSettingsForm = ({
   const [name, setName] = useState(cls?.name || "");
   const [busy, setBusy] = useState(false);
   const [assigned, setAssigned] = useState(currentTeacherIds);
+  const [error, setError] = useState(null);
 
   const toggleTeacher = (t) =>
     setAssigned((a) => (a.includes(t) ? a.filter((x) => x !== t) : [...a, t]));
-  const submit = async () => {
+  const submit = async (ev) => {
+    ev?.preventDefault();
     if (!name.trim()) {
-      toast.push("Class name is required", "error");
+      setError("Enter a class name");
+      document.getElementById("class-settings-name")?.focus();
       return;
     }
     setBusy(true);
@@ -39,7 +42,8 @@ const ClassSettingsForm = ({
       toast.push("Class settings saved", "success");
       onClose();
     } catch (err) {
-      toast.push(err.message || "Couldn't save the class", "error");
+      if (err.code === "DUPLICATE_CLASS") setError(err.message);
+      else toast.push(err.message || "Couldn't save the class", "error");
     } finally {
       setBusy(false);
     }
@@ -53,31 +57,33 @@ const ClassSettingsForm = ({
       maxWidth="640px"
       footer={
         <>
-          <Button
-            onClick={onClose} variant="ghost"
-          >
+          <Button onClick={onClose} variant="ghost">
             Cancel
           </Button>
-          <Button
-            onClick={submit}
-            disabled={busy}
-          >
-            Save changes
+          <Button type="submit" form="class-settings-form" disabled={busy}>
+            {busy ? "Saving…" : "Save changes"}
           </Button>
         </>
       }
     >
-      <Field label="Class name">
+      <form id="class-settings-form" onSubmit={submit} noValidate>
+      <Field label="Class name" error={error}>
         <input
+          id="class-settings-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null);
+          }}
+          aria-invalid={error ? true : undefined}
+          autoComplete="off"
           placeholder="e.g. Grade 12 — Section C"
           autoFocus
           className={inputClass}
         />
       </Field>
 
-      <Field
+      <FieldGroup
         label="Assigned teachers"
         hint="Removing a teacher unassigns them from this class but keeps their account active."
       >
@@ -90,6 +96,7 @@ const ClassSettingsForm = ({
           {availableTeachers.map((t) => (
             <Chip
               key={t.id}
+              check
               active={assigned.includes(t.id)}
               onClick={() => toggleTeacher(t.id)}
             >
@@ -97,12 +104,14 @@ const ClassSettingsForm = ({
             </Chip>
           ))}
         </ChipRow>
-      </Field>
+      </FieldGroup>
+      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+      </form>
 
       <div className="mt-7 border-t border-rule pt-5">
-        <div className="mb-3 text-[12px] font-semibold text-danger">
+        <h3 className="mb-3 text-[13px] font-semibold text-danger">
           Danger zone
-        </div>
+        </h3>
         <div className="flex flex-col items-start gap-4 rounded-[var(--radius-container)] border border-danger/30 bg-danger-dim p-4 narrow:flex-row narrow:items-center">
           <div className="min-w-0 flex-1">
             <strong className="mb-0.5 block text-[13.5px] font-semibold text-ink">

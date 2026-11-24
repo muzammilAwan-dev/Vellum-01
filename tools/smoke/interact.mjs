@@ -183,8 +183,19 @@ await page.getByRole("button", { name: "Edit", exact: true }).first().click(); a
 check("parent contact: the edit box holds the full number in local form", (await page.getByPlaceholder("0300-1234567").first().inputValue()) === "0300-1234567");
 await noErrors("parent contact (teacher)");
 await mount("admin", "/admin/users", false);
-const pc = page.getByRole("button", { name: /Parent contact for/ });
-check("parent contact: admin accounts table has the button on student rows only", (await pc.count()) > 0 && (await pc.count()) < (await page.locator("tbody tr").count()));
+// U1-admin: row actions live in one "Actions for <name>" menu; "Parent contact" is in it for students only.
+const menus = page.getByRole("button", { name: /^Actions for / });
+check("accounts: one actions menu per row", (await menus.count()) === (await page.locator("tbody tr").count()) && (await menus.count()) > 0);
+// No CSS is loaded here, so the portalled menu would not be position:fixed; focusing it would scroll the
+// page, and the menu closes on scroll (by design). Give the harness that one rule.
+await page.addStyleTag({ content: "[role=listbox],[role=menu]{position:fixed;top:0;right:0}" });
+const openMenu = async (name) => { const b = page.getByRole("button", { name }); await b.scrollIntoViewIfNeeded(); await page.waitForTimeout(250); await b.click(); await page.waitForTimeout(300); };
+await openMenu("Actions for Dr. R. Chen");
+check("accounts: a teacher's menu has no Parent contact", (await page.getByRole("menuitem", { name: "Parent contact" }).count()) === 0 && (await page.getByRole("menuitem", { name: "Remove account" }).count()) === 1);
+await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+await openMenu("Actions for Maya Okafor");
+const pc = page.getByRole("menuitem", { name: "Parent contact" });
+check("parent contact: a student's menu has it", (await pc.count()) === 1);
 await pc.first().click(); await page.waitForTimeout(800);
 check("parent contact: admin dialog opens with the contact area", /Parent contact ·/.test(await text()) && /Add contact|Edit/.test(await text()));
 await noErrors("parent contact (admin)");
@@ -249,7 +260,7 @@ await mount("admin", "/admin/institution");
 check("privacy: admin editor shows the draft banner and the text box", /Draft\. This wording is a template/.test(await text()) && await page.getByLabel("Privacy policy text").isVisible());
 const mine = "## Our promise\nWe keep {{institution}} marks and names safe and we use them only to run tests and report progress to families. " + "Ask the office if you have questions. ".repeat(6) + "\n";
 await page.getByLabel("Privacy policy text").fill(mine); await page.waitForTimeout(300);
-await page.getByRole("button", { name: "Preview", exact: true }).click(); await page.waitForTimeout(300);
+await page.getByRole("radio", { name: "Preview", exact: true }).click(); await page.waitForTimeout(300);
 check("privacy: preview fills in the institution name", /We keep Westfield Institute marks/.test(await text()));
 await page.getByRole("checkbox", { name: /legal adviser has reviewed/ }).check();
 await page.getByRole("button", { name: "Save policy" }).click(); await page.waitForTimeout(1500);

@@ -1,270 +1,187 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, Users, GraduationCap, Layers, Search as SearchIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, BarChart3, BookOpen, Presentation, Settings2, UserPlus, Users } from "lucide-react";
 import { ClassSettingsModal } from "./ClassSettingsModal";
-import { Chip, ChipRow, EmptyState, MetricCard } from "@/components/common";
+import { Avatar, EmptyState, PageFrame, PageHeader, SearchField, Segmented, StatGrid, StatTile, TabPanel, Tabs } from "@/components/common";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
+
+// Averages under this are marked in the roster (a pass mark, not a grade boundary).
+const LOW = 50;
+const TABS_ID = "class-detail";
 
 // ═══════════════════════════════════════════════════════════════
 // CLASS DETAIL
 // ═══════════════════════════════════════════════════════════════
-export const ClassDetail = ({
-  cls,
-  roster,
-  teachers,
-  onBack,
-  onAddStudent,
-  onRemoveStudent,
-  onUpdateClass,
-  onDeleteClass,
-}) => {
+export const ClassDetail = ({ cls, roster, teachers, onAddStudent, onRemoveStudent, onUpdateClass, onDeleteClass }) => {
   const [tab, setTab] = useState("students");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("name");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const filteredStudents = useMemo(() => {
-    if (!search.trim()) return roster.students;
+  const students = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return roster.students.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) || (s.roll ?? "").toLowerCase().includes(q),
-    );
-  }, [roster.students, search]);
+    const list = q ? roster.students.filter((s) => s.name.toLowerCase().includes(q) || (s.roll ?? "").toLowerCase().includes(q)) : [...roster.students];
+    if (sort === "avg") list.sort((a, b) => (a.average ?? 101) - (b.average ?? 101));
+    else list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [roster.students, search, sort]);
 
   const stats = useMemo(() => {
     const active = roster.students.filter((s) => s.active).length;
     const scored = roster.students.filter((s) => s.average != null);
-    const avg = scored.length
-      ? Math.round(scored.reduce((sum, s) => sum + s.average, 0) / scored.length)
-      : null;
-    return { active, avg, total: roster.students.length };
+    const avg = scored.length ? Math.round(scored.reduce((sum, s) => sum + s.average, 0) / scored.length) : null;
+    return { active, avg, total: roster.students.length, low: scored.filter((s) => s.average < LOW).length };
   }, [roster.students]);
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <Button
-        onClick={onBack} variant="ghost" size="sm" className="mb-3"
-      >
-        <ChevronLeft size={13} /> Back to classes
-      </Button>
+    <PageFrame>
+      <PageHeader
+        crumbs={[{ label: "Administration", to: "/admin" }, { label: "Classes", to: "/admin/classes" }, { label: cls.name }]}
+        title={cls.name}
+        titleNote={<span className="rounded-md bg-primary-dim px-2 py-1 font-mono text-[12.5px] font-bold tracking-wider text-primary">{cls.code}</span>}
+        intro={`${roster.teachers.length} ${roster.teachers.length === 1 ? "teacher" : "teachers"} · ${stats.total} ${stats.total === 1 ? "student" : "students"} · ${cls.subjectCount} ${cls.subjectCount === 1 ? "subject" : "subjects"}`}
+        actions={
+          <>
+            <Button onClick={() => setSettingsOpen(true)} variant="outline">
+              <Settings2 size={15} aria-hidden="true" /> Class settings
+            </Button>
+            <Button onClick={onAddStudent}>
+              <UserPlus size={15} aria-hidden="true" /> Add student
+            </Button>
+          </>
+        }
+      />
 
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        Administration <span className="text-ink-3">/</span> Classes{" "}
-        <span className="text-ink-3">/</span> {cls.name}
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            {cls.name}
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            {roster.teachers.length} teacher
-            {roster.teachers.length !== 1 ? "s" : ""} assigned · {stats.total}{" "}
-            student{stats.total !== 1 ? "s" : ""} enrolled · {cls.subjectCount}{" "}
-            subjects
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Button
-            onClick={() => setSettingsOpen(true)} variant="outline"
-          >
-            Class settings
-          </Button>
-          <Button
-            onClick={onAddStudent}
-          >
-            + Add student
-          </Button>
-        </div>
-      </div>
-
-      <div className="bento mb-8">
-        <MetricCard
-          icon={Users}
-          iconTone="primary"
-          tinted={false}
-          label="Students"
-          value={stats.total}
-          delta={`${stats.active} active`}
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={GraduationCap}
-          iconTone="primary"
-          tinted={false}
-          label="Teachers"
-          value={roster.teachers.length}
-          delta="Assigned"
-          deltaTone="neutral"
-        />
-        <MetricCard
-          icon={Layers}
-          iconTone="success"
+      <StatGrid className="mb-8">
+        <StatTile icon={Users} label="Students" value={stats.total} caption={stats.total === stats.active ? "All active" : `${stats.total - stats.active} inactive`} tone={stats.total === stats.active ? "good" : "attention"} />
+        <StatTile icon={Presentation} label="Teachers" value={roster.teachers.length} caption={roster.teachers.length ? roster.teachers.map((t) => t.name).join(", ") : "None assigned yet"} tone={roster.teachers.length ? "neutral" : "attention"} />
+        <StatTile
+          icon={BarChart3}
           label="Class average"
           value={stats.avg ?? "—"}
           unit={stats.avg == null ? undefined : "%"}
-          delta="All subjects"
-          deltaTone="success"
+          caption={stats.avg == null ? "No graded tests yet" : stats.low ? `${stats.low} ${stats.low === 1 ? "student" : "students"} under ${LOW}%` : `Everyone at ${LOW}% or above`}
+          tone={stats.avg == null ? "neutral" : stats.low ? "attention" : "good"}
         />
-        <MetricCard
-          icon={Layers}
-          iconTone="primary"
-          tinted={false}
-          label="Subjects"
-          value={cls.subjectCount}
-          delta="This term"
-          deltaTone="neutral"
-        />
-      </div>
+        <StatTile icon={BookOpen} label="Subjects" value={cls.subjectCount} caption="Taught in this class" />
+      </StatGrid>
 
-      <div className="sticky top-16 z-10 -mx-5 mb-4 flex flex-wrap items-center gap-2 border-b border-rule bg-bg/95 px-5 py-3 backdrop-blur-xl tablet:-mx-10 tablet:px-10">
-        <ChipRow>
-          <Chip active={tab === "students"} onClick={() => setTab("students")}>
-            Students ({stats.total})
-          </Chip>
-          <Chip active={tab === "teachers"} onClick={() => setTab("teachers")}>
-            Teachers ({roster.teachers.length})
-          </Chip>
-        </ChipRow>
+      <Tabs
+        label="Class members"
+        idBase={TABS_ID}
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "students", label: "Students", count: stats.total },
+          { id: "teachers", label: "Teachers", count: roster.teachers.length },
+        ]}
+        className="mb-4"
+      />
 
-        {tab === "students" && (
-          <>
-            <label className="relative ml-0 flex h-10 min-w-[200px] flex-1 narrow:ml-2 pointer-coarse:h-11 items-center gap-2 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-2.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[320px]">
-              <SearchIcon size={14} className="shrink-0 text-ink-3" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or roll no…"
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3 pointer-coarse:text-[16px]"
-              />
-            </label>
-            <div className="ml-auto font-mono text-[12px] tabular-nums text-ink-3">
-              {filteredStudents.length} shown
-            </div>
-          </>
-        )}
-      </div>
+      <TabPanel idBase={TABS_ID} id="students" className={tab === "students" ? undefined : "hidden"}>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <SearchField label="Search students" value={search} onChange={setSearch} placeholder="Name or roll no." className="flex-1 narrow:max-w-[340px]" />
+          <Segmented label="Sort by" size="sm" value={sort} onChange={setSort} options={[{ value: "name", label: "Name" }, { value: "avg", label: "Lowest average" }]} />
+          <p className="ml-auto text-[12.5px] tabular-nums text-ink-3" aria-live="polite">
+            {students.length} of {stats.total}
+          </p>
+        </div>
 
-      {tab === "students" && (
         <div className="overflow-hidden rounded-[var(--radius-container)] border border-rule bg-surface shadow-[var(--shadow-card)]">
-          {filteredStudents.length === 0 ? (
+          {students.length === 0 ? (
             <EmptyState
               compact
               title={roster.students.length ? "No students match" : "No students yet"}
-              body={roster.students.length ? "Try a different search term." : "Add the first student to this class."}
-              action={search ? "Clear search" : undefined}
-              onAction={() => setSearch("")}
+              body={roster.students.length ? "Try a different name or roll number." : "Add the first student to this class."}
+              action={search ? "Clear search" : roster.students.length ? undefined : "Add student"}
+              onAction={search ? () => setSearch("") : onAddStudent}
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-rule-2">
-                    {["Name", "Roll no", "Email", "Avg", "Status", ""].map(
-                      (h, i) => (
-                        <th
-                          key={i}
-                          className={cn(
-                            "whitespace-nowrap px-3 py-2.5 text-[12px] font-semibold text-ink-3 narrow:px-4",
-                            h === "Avg" ? "text-right" : "text-left",
-                            h === "" && "w-24",
-                            // Phones keep Name · Avg · Remove; the rest moves under the name.
-                            ["Roll no", "Email", "Status"].includes(h) && "max-narrow:hidden",
-                          )}
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
+                  <tr className="border-b border-rule-2 bg-sunken/40">
+                    <th className="px-3 py-2.5 text-left text-[12px] font-semibold text-ink-3 narrow:px-4">Name</th>
+                    <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-ink-3 max-narrow:hidden">Roll no.</th>
+                    <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-ink-3 max-tablet:hidden">Email</th>
+                    <th className="px-3 py-2.5 text-right text-[12px] font-semibold text-ink-3 narrow:px-4">Average</th>
+                    <th className="px-4 py-2.5 text-left text-[12px] font-semibold text-ink-3 max-narrow:hidden">Status</th>
+                    <th className="w-24 px-3 py-2.5 narrow:px-4">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredStudents.map((s) => (
-                    <tr
-                      key={s.id}
-                      className="border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50"
-                    >
-                      <td className="px-3 py-3 text-[13.5px] font-medium text-ink narrow:px-4 max-narrow:min-w-[8.5rem]">
-                        <span className="whitespace-nowrap">{s.name}</span>
-                        <div className="mt-0.5 text-[12px] font-normal text-ink-3 narrow:hidden">
-                          {s.roll} · {s.active ? "Active" : "Inactive"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[12px] max-narrow:hidden">
-                        {s.roll}
-                      </td>
-                      <td className="px-4 py-3 text-[12px] text-ink-3 max-narrow:hidden">
-                        {s.email}
-                      </td>
-                      <td className="px-3 py-3 text-right text-[13px] font-medium tabular-nums text-ink narrow:px-4">
-                        {s.average == null ? "—" : `${s.average}%`}
-                      </td>
-                      <td className="px-4 py-3 max-narrow:hidden">
-                        <span
-                          className={cn(
-                            "text-[12px] font-medium",
-                            s.active
-                              ? "text-success"
-                              : "text-warning",
+                  {students.map((s) => {
+                    const low = s.average != null && s.average < LOW;
+                    return (
+                      <tr key={s.id} className="border-b border-rule transition-colors last:border-b-0 hover:bg-raised/40">
+                        <td className="px-3 py-3 narrow:px-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Avatar name={s.name} src={s.photoUrl} size="sm" decorative />
+                            <div className="min-w-0">
+                              <div className="truncate text-[13.5px] font-medium text-ink">{s.name}</div>
+                              <div className="text-[12px] text-ink-3 narrow:hidden">
+                                {s.roll} · {s.active ? "Active" : "Inactive"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-[12.5px] text-ink-2 max-narrow:hidden">{s.roll}</td>
+                        <td className="px-4 py-3 text-[12.5px] text-ink-3 max-tablet:hidden">{s.email}</td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right narrow:px-4">
+                          {s.average == null ? (
+                            <span className="text-[13px] text-ink-3">—</span>
+                          ) : (
+                            <span className={cn("inline-flex items-center gap-1.5 text-[13.5px] font-semibold tabular-nums", low ? "text-warning" : "text-ink")}>
+                              {low && <AlertTriangle size={13} aria-hidden="true" />}
+                              {s.average}%{low && <span className="sr-only"> (under {LOW}%)</span>}
+                            </span>
                           )}
-                        >
-                          {s.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-3 text-right narrow:px-4">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveStudent?.(s);
-                          }}
-                          className="rounded-[var(--radius-control)] px-3 py-2 text-[12px] font-medium text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-4 py-3 text-[12.5px] font-medium max-narrow:hidden">
+                          <span className={s.active ? "text-success" : "text-ink-3"}>{s.active ? "Active" : "Inactive"}</span>
+                        </td>
+                        <td className="px-2 py-2 text-right narrow:px-4">
+                          <button
+                            type="button"
+                            onClick={() => onRemoveStudent?.(s)}
+                            aria-label={`Remove ${s.name} from the class`}
+                            className="inline-flex min-h-9 items-center rounded-[var(--radius-control)] px-3 text-[12.5px] font-medium text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger focus-visible:ring-2 focus-visible:ring-ring/40"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      )}
+      </TabPanel>
 
-      {tab === "teachers" && (
-        <div className="overflow-hidden rounded-[var(--radius-container)] border border-rule bg-surface shadow-[var(--shadow-card)]">
-          {roster.teachers.map((t, i) => (
-            <div
-              key={t.id}
-              className={cn(
-                "flex items-center gap-4 px-5 py-4",
-                i > 0 && "border-t border-rule",
-              )}
-            >
-              <div className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary-dim text-[12px] font-semibold text-primary">
-                {t.name
-                  .split(" ")
-                  .map((x) => x[0])
-                  .join("")
-                  .slice(0, 2)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[14px] font-medium text-ink">
-                  {t.name}
+      <TabPanel idBase={TABS_ID} id="teachers" className={tab === "teachers" ? undefined : "hidden"}>
+        {roster.teachers.length === 0 ? (
+          <EmptyState compact title="No teachers yet" body="Assign a teacher in the class settings." action="Class settings" onAction={() => setSettingsOpen(true)} />
+        ) : (
+          <ul className="overflow-hidden rounded-[var(--radius-container)] border border-rule bg-surface shadow-[var(--shadow-card)]">
+            {roster.teachers.map((t, i) => (
+              <li key={t.id} className={cn("flex items-center gap-4 px-5 py-4", i > 0 && "border-t border-rule")}>
+                <Avatar name={t.name} src={t.photoUrl} size="md" tone="teacher" decorative />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-medium text-ink">{t.name}</div>
+                  <div className="truncate text-[12.5px] text-ink-3">{t.email}</div>
                 </div>
-                <div className="truncate font-mono text-[12px] text-ink-3">
-                  {t.email}
+                <div className="shrink-0 text-[12.5px] tabular-nums text-ink-3">
+                  Teaches <b className="font-semibold text-ink">{t.classCount}</b> {t.classCount === 1 ? "class" : "classes"}
                 </div>
-              </div>
-              <div className="shrink-0 font-mono text-[12px] tabular-nums text-ink-3">
-                <b className="font-semibold text-ink">{t.classCount}</b> {t.classCount === 1 ? "class" : "classes"}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </TabPanel>
 
       <ClassSettingsModal
         open={settingsOpen}
@@ -272,14 +189,12 @@ export const ClassDetail = ({
         cls={cls}
         availableTeachers={teachers}
         currentTeacherIds={roster.teachers.map((t) => t.id)}
-        onSave={(data) => {
-          return onUpdateClass?.(data);
-        }}
+        onSave={(data) => onUpdateClass?.(data)}
         onDelete={() => {
           setSettingsOpen(false);
           onDeleteClass?.();
         }}
       />
-    </div>
+    </PageFrame>
   );
 };

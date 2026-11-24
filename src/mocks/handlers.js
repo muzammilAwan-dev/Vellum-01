@@ -872,7 +872,8 @@ const ROUTES = [
       as(user, "admin");
       return users()
         .filter((u) => u.role !== "admin" && (!query.role || u.role === query.role))
-        .map((u) => userView(u, user));
+        // The list only says whether a parent number is on file (admin home + Accounts filter); never the number.
+        .map((u) => ({ ...userView(u, user), ...(u.role === "student" ? { hasParentContact: !!u.guardianPhone } : {}) }));
     },
   },
   {

@@ -33,11 +33,16 @@ function buildRoleItems(role, navigate) {
       nav("analytics", "Progress", "Analytics"),
     ];
   }
+  const act = (id, label, hint, path) => ({ id: `act-${id}`, section: "Actions", label, hint, action: () => navigate(path) });
   return [
     nav("admin", "Overview", "Home"),
-    nav("users", "Accounts", "Users"),
+    nav("users", "Accounts", "Teachers and students"),
     nav("classes", "Classes", "Rosters"),
+    nav("institution", "Institution", "Name, logo, privacy"),
     nav("audit", "Audit", "Grading trail"),
+    nav("profile", "Profile", "Your account"),
+    act("new-account", "Create an account", "Accounts", "/admin/users?new=1"),
+    act("new-class", "Create a class", "Classes", "/admin/classes?new=1"),
   ];
 }
 

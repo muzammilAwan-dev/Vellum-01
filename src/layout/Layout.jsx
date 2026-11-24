@@ -72,9 +72,12 @@ export const Layout = () => {
   // ── A11y: after client-side navigation, move focus to <main> so screen-reader
   //    and keyboard users start at the new page (not the old nav link). Skipped
   //    on first load. ──
-  const firstRender = useRef(true);
+  // Compares paths (not a "first render" flag): StrictMode runs effects twice in development,
+  // which used to move focus past the skip link on the very first load.
+  const lastPath = useRef(location.pathname);
   useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
+    if (lastPath.current === location.pathname) return;
+    lastPath.current = location.pathname;
     mainRef.current?.focus({ preventScroll: true });
   }, [location.pathname]);
 

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { AlertTriangle, ClipboardCheck, PencilLine, Sparkles } from "lucide-react";
 import { GradingTrail } from "@/components/admin-audit/GradingTrail";
 import { TrailFilters } from "@/components/admin-audit/TrailFilters";
-import { MetricCard, PageError, PageLoading } from "@/components/common";
+import { PageError, PageFrame, PageHeader, PageLoading, StatGrid, StatTile } from "@/components/common";
 import { useAuditTrail } from "@/hooks/useAudit";
 import { TRAIL_FILTERS, filterTrailRows } from "@/lib/auditTrail";
 
@@ -28,39 +28,19 @@ const AdminAuditTest = () => {
   const { test, totals, nextCursor } = res.data;
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex flex-wrap items-center gap-2 text-[13px] font-medium text-ink-3">
-        Administration <span>/</span>
-        <Link to="/admin/audit/tests" className="rounded-sm hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40">
-          Audit
-        </Link>
-        <span>/</span> <span className="min-w-0 truncate text-ink-2">{test.title}</span>
-      </div>
+    <PageFrame>
+      <PageHeader
+        crumbs={[{ label: "Administration", to: "/admin" }, { label: "Audit", to: "/admin/audit" }, { label: "Tests", to: "/admin/audit/tests" }, { label: test.title }]}
+        title={test.title}
+        intro={`${test.subject} · ${test.cls}${test.teacher ? ` · ${test.teacher}` : ""} · results released ${test.settings.release === "immediately" ? "immediately" : "after the test closes"} · AI grading ${test.settings.aiGrading ? "on" : "off"}`}
+      />
 
-      <div className="mb-8 min-w-0">
-        <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">
-          {test.title}
-        </h1>
-        <p className="mt-2 max-w-[720px] text-[14px] leading-relaxed text-ink-2">
-          {test.subject} · {test.cls}
-          {test.teacher ? ` · ${test.teacher}` : ""} · results released {test.settings.release === "immediately" ? "immediately" : "after the test closes"} ·
-          AI grading {test.settings.aiGrading ? "on" : "off"}
-        </p>
-      </div>
-
-      <div className="bento mb-8">
-        <MetricCard icon={Sparkles} iconTone="primary" label="Written answers" value={totals.answers} delta="Marked by AI or teacher" deltaTone="success" />
-        <MetricCard icon={PencilLine} iconTone="primary" label="Overridden" value={totals.overridden} delta="Teacher changed the AI mark" deltaTone="success" />
-        <MetricCard
-          icon={AlertTriangle}
-          iconTone={totals.afterRelease > 0 ? "danger" : "neutral"}
-          label="After release"
-          value={totals.afterRelease}
-          delta={totals.afterRelease > 0 ? "Changed once students could see it" : "None"}
-          deltaTone={totals.afterRelease > 0 ? "danger" : "success"}
-        />
-        <MetricCard icon={ClipboardCheck} iconTone="neutral" label="Awaiting teacher" value={totals.pending} delta="Not final yet" deltaTone="success" />
-      </div>
+      <StatGrid className="mb-8">
+        <StatTile icon={Sparkles} label="Written answers" value={totals.answers} caption="Marked by the AI or the teacher" />
+        <StatTile icon={PencilLine} label="Overridden" value={totals.overridden} caption="Teacher changed the AI mark" tone={totals.overridden ? "attention" : "neutral"} />
+        <StatTile icon={AlertTriangle} label="Changed after release" value={totals.afterRelease} caption={totals.afterRelease > 0 ? "Changed once students could see it" : "None"} tone={totals.afterRelease > 0 ? "danger" : "good"} />
+        <StatTile icon={ClipboardCheck} label="Awaiting teacher" value={totals.pending} caption={totals.pending ? "Not final yet" : "All final"} tone={totals.pending ? "attention" : "good"} />
+      </StatGrid>
 
       <TrailFilters filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} counts={counts} />
       {nextCursor && (
@@ -73,7 +53,7 @@ const AdminAuditTest = () => {
           setQuery("");
         }}
       />
-    </div>
+    </PageFrame>
   );
 };
 

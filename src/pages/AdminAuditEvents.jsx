@@ -4,7 +4,7 @@ import { AuditTabs } from "@/components/admin-audit/AuditTabs";
 import { EventFilters } from "@/components/admin-audit/EventFilters";
 import { EMPTY_FILTERS, dayEnd, dayStart } from "@/lib/auditEvents";
 import { EventList } from "@/components/admin-audit/EventList";
-import { PageError, PageLoading } from "@/components/common";
+import { PageError, PageFrame, PageHeader, PageLoading } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { fetchAllAuditEvents, logAuditExport } from "@/api/audit";
 import { useToast } from "@/context/useToast";
@@ -50,35 +50,34 @@ const AdminAuditEvents = () => {
   const { events, names, total, nextCursor, facets } = res.data;
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        Administration <span>/</span> Audit
-      </div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">Audit</h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">Every recorded event, newest first. Exporting is recorded too.</p>
-        </div>
-        <Button variant="outline" onClick={exportCsv} disabled={busy || total === 0}>
-          <Download size={14} aria-hidden="true" /> {busy ? "Exporting…" : "Export CSV"}
-        </Button>
-      </div>
+    <PageFrame>
+      <PageHeader
+        crumbs={[{ label: "Administration", to: "/admin" }, { label: "Audit", to: "/admin/audit" }, { label: "Events" }]}
+        title="Audit"
+        intro="Every recorded event, newest first, grouped by day. Exporting is recorded too."
+        actions={
+          <Button variant="outline" onClick={exportCsv} disabled={busy || total === 0}>
+            <Download size={15} aria-hidden="true" /> {busy ? "Exporting…" : "Export CSV"}
+          </Button>
+        }
+      />
       <AuditTabs />
       <EventFilters value={filters} onChange={change} actors={facets.actors} onClear={() => change(EMPTY_FILTERS)} />
       <p className="mb-3 text-[12.5px] text-ink-3" aria-live="polite">
         {total} {total === 1 ? "event" : "events"}
         {Object.values(filters).some(Boolean) ? " match" : ""}
+        {events.length < total ? ` · showing the newest ${events.length}` : ""}
       </p>
       <EventList events={events} names={names} />
       {nextCursor && limit < MAX && (
         <div className="mt-4 flex justify-center">
           <Button variant="outline" onClick={() => setLimit((l) => Math.min(l + PAGE, MAX))}>
-            Show more
+            Show {Math.min(PAGE, total - events.length)} more
           </Button>
         </div>
       )}
       {nextCursor && limit >= MAX && <p className="mt-4 text-center text-[12.5px] text-ink-3">Showing the newest {MAX}. Narrow the filters or export to see the rest.</p>}
-    </div>
+    </PageFrame>
   );
 };
 

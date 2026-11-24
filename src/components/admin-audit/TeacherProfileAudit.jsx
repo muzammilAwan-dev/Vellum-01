@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { AlertTriangle, ArrowDownUp, ClipboardCheck, PencilLine } from "lucide-react";
-import { MetricCard, TableShell, Td, Th } from "@/components/common";
+import { StatGrid, StatTile, TableShell, Td, Th } from "@/components/common";
 import { SignalList } from "./SignalList";
 
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -10,33 +10,28 @@ export const TeacherProfileAudit = ({ data }) => {
   const testTitles = Object.fromEntries(tests.map((t) => [t.testId, t.title]));
   return (
     <>
-      <div className="bento mb-8">
-        <MetricCard icon={ClipboardCheck} iconTone="primary" label="Answers reviewed" value={stats.reviewed} delta="Approved or changed" deltaTone="success" />
-        <MetricCard
+      <StatGrid className="mb-8">
+        <StatTile icon={ClipboardCheck} label="Answers reviewed" value={stats.reviewed} caption="Approved or changed by this teacher" />
+        <StatTile
           icon={PencilLine}
-          iconTone="primary"
-          label="Changed from AI"
+          label="Changed from the AI"
           value={stats.reviewed ? pct(stats.overrideRate) : "—"}
-          delta={peerMedianRate === null ? "No other teachers to compare" : `Other teachers: about ${pct(peerMedianRate)}`}
-          deltaTone="success"
+          caption={peerMedianRate === null ? "No other teachers to compare with" : `Other teachers: about ${pct(peerMedianRate)}`}
         />
-        <MetricCard
+        <StatTile
           icon={ArrowDownUp}
-          iconTone="neutral"
-          label="Direction of changes"
-          value={`${stats.upward} up · ${stats.downward} down`}
-          delta={stats.upward + stats.downward ? `Average ${stats.avgDelta > 0 ? "+" : ""}${stats.avgDelta.toFixed(1)} marks` : "No changes yet"}
-          deltaTone="success"
+          label="Raised / lowered"
+          value={`${stats.upward} / ${stats.downward}`}
+          caption={stats.upward + stats.downward ? `Average change ${stats.avgDelta > 0 ? "+" : ""}${stats.avgDelta.toFixed(1)} marks` : "No changes yet"}
         />
-        <MetricCard
+        <StatTile
           icon={AlertTriangle}
-          iconTone={stats.afterRelease > 0 ? "danger" : "neutral"}
-          label="After release"
+          label="Changed after release"
           value={stats.afterRelease}
-          delta={stats.afterRelease > 0 ? "Changed once students could see it" : "None"}
-          deltaTone={stats.afterRelease > 0 ? "danger" : "success"}
+          caption={stats.afterRelease > 0 ? "Changed once students could see it" : "None"}
+          tone={stats.afterRelease > 0 ? "danger" : "good"}
         />
-      </div>
+      </StatGrid>
 
       <h2 className="mb-1 text-[16px] font-semibold text-ink">Signals</h2>
       <p className="mb-3 text-[13px] text-ink-3">Signals are clues, not proof. Marks change for good reasons; check the grading trail before drawing a conclusion.</p>

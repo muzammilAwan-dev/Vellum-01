@@ -2480,3 +2480,56 @@ assert(n===2, "a successful write refetches the ['tests'] list");
   assert(/Draft\. This wording is a template, not legal advice/.test(ed) && /legal adviser has reviewed/.test(ed) && /Start from the template/.test(ed) && /aria-label="Privacy policy text"/.test(ed) && /Preview/.test(ed) && /The institution has not confirmed this policy yet/.test(pg) && /window\.print\(\)/.test(pg) && /no-print/.test(pg), "wiring: draft banner until reviewed, template reset (asks first), preview, plain-text hint, public page notice and print");
   resetMockData(); client.setAuthToken(null);
 }
+
+// ── U1-admin (vellum-64): admin home rules, account filters, event grouping, users list field ──
+{
+  const H = await import("@/lib/adminHome");
+  const { resetMockData, db: DB } = await import("@/mocks/db");
+  const fs = await import("node:fs"); const src = (p) => fs.readFileSync(p, "utf8");
+  resetMockData(); await as("admin");
+  const list = await get("/users");
+  const kids = list.filter((u) => u.role === "student");
+  assert(kids.length > 0 && kids.every((u) => typeof u.hasParentContact === "boolean") && list.filter((u) => u.role === "teacher").every((u) => !("hasParentContact" in u)), "GET /users: students carry hasParentContact, teachers don't");
+  assert(!JSON.stringify(list).match(/guardianPhone|guardianName|92\d{10}/), "GET /users: never the parent's name or number");
+  // ── filters
+  const U = [
+    { id: "t1", name: "Dr. R. Chen", email: "r.chen@x.edu", role: "teacher", active: true, classIds: ["c1"] },
+    { id: "t2", name: "Mr. New", email: "new@x.edu", role: "teacher", active: true, classIds: [], mustChangePassword: true },
+    { id: "s1", name: "Tomás Reyes", email: "t.reyes@x.edu", role: "student", active: true, classId: "c1", roll: "11A-28", hasParentContact: true },
+    { id: "s2", name: "Zara Ahmed", email: "z.ahmed@x.edu", role: "student", active: false, classId: "c2", roll: "11B-02", hasParentContact: false },
+    { id: "s3", name: "No Class", email: "nc@x.edu", role: "student", active: true, classId: null, hasParentContact: false, mustChangePassword: true },
+  ];
+  const ids = (f) => H.filterAccounts(U, f).map((u) => u.id).join();
+  assert(ids({}) === "t1,t2,s1,s2,s3" && ids({ role: "teacher" }) === "t1,t2" && ids({ role: "student", show: "no-contact" }) === "s2,s3", "accounts: role and show filters combine");
+  assert(ids({ q: "tomas" }) === "s1" && ids({ q: "11B" }) === "s2" && ids({ q: "R.CHEN" }) === "t1" && ids({ q: "  " }) === "t1,t2,s1,s2,s3", "accounts: search ignores case and accents, matches email and roll number");
+  assert(ids({ show: "inactive" }) === "s2" && ids({ show: "password" }) === "t2,s3" && ids({ show: "no-class" }) === "t2,s3" && ids({ classId: "c1" }) === "t1,s1", "accounts: inactive, temporary password, no class, by class (teachers by the classes they teach)");
+  const c = H.accountCounts(U, "student");
+  assert(c.all === 3 && c.inactive === 1 && c["no-contact"] === 2 && c.password === 1 && c["no-class"] === 1, "accounts: chip counts follow the chosen role");
+  // ── attention list
+  const A0 = H.buildAttention({});
+  assert(Array.isArray(A0) && A0.length === 0, "attention: nothing loaded → no items (never a false alarm)");
+  const classes = [{ id: "c1", name: "Grade 11 — Section A", teachers: [{ id: "t1" }] }, { id: "c2", name: "Grade 11 — Section B", teachers: [] }];
+  const auditTeachers = [{ teacherId: "t1", name: "Dr. R. Chen", signals: { high: 1, medium: 0, low: 0 } }, { teacherId: "t2", name: "Mr. New", signals: { high: 0, medium: 2, low: 0 } }];
+  const A = H.buildAttention({ users: U, classes, privacy: { reviewed: false }, integrity: { ok: false, badSeq: 9 }, auditTeachers });
+  const order = A.map((x) => x.id).join();
+  assert(A[0].id === "integrity" && A[0].tone === "danger", "attention: an altered audit record comes first");
+  assert(["signals", "privacy", "class-teacher", "no-class", "password", "no-contact", "inactive"].every((k) => order.includes(k)), "attention: signals, privacy draft, class without teacher, student without class, temporary passwords, missing parent contacts, inactive accounts");
+  assert(A.findIndex((x) => x.tone === "info") > A.findIndex((x) => x.id === "class-teacher"), "attention: urgent items before information");
+  assert(A.find((x) => x.id === "signals").to === "/admin/audit/teachers/t1" && A.find((x) => x.id === "no-class").to === "/admin/users?role=student&show=no-class" && A.find((x) => x.id === "privacy").to === "/admin/institution#privacy", "attention: each item links straight to where it is fixed");
+  assert(A.find((x) => x.id === "password").count === 2 && A.find((x) => x.id === "no-contact").count === 2, "attention: counts (inactive accounts don't count as waiting for a password)");
+  assert(H.buildAttention({ users: [], classes: [], privacy: { reviewed: true }, integrity: { ok: true }, auditTeachers: [] }).length === 0, "attention: all in order → empty list");
+  // ── event grouping
+  const ev = (seq, type, actor, bulk, at = "2026-11-20T10:00:00Z") => ({ seq, type, actor: { id: actor, name: actor }, at, meta: bulk ? { bulk: true } : {} });
+  const G2 = H.groupEvents([ev(9, "grade.approve", "osei", true), ev(8, "grade.approve", "osei", true), ev(7, "grade.approve", "osei", true), ev(6, "grade.approve", "osei", false), ev(5, "grade.approve", "chen", true), ev(4, "grade.approve", "chen", true)]);
+  assert(G2.length === 3 && G2[0].events.map((e) => e.seq).join() === "9,8,7" && G2[1].events.length === 1 && G2[2].events.length === 2, "events: runs of bulk approvals by one person collapse; a single approval or another person starts a new row");
+  assert(H.groupEvents([]).length === 0 && H.dayKey("2026-11-20T10:00:00") === "2026-11-20", "events: empty list, day keys in local time");
+  // ── wiring
+  const ms = src("src/components/common/ModalShell.jsx"), hook = src("src/hooks/useModalA11y.js"), tb = src("src/layout/TopBar.jsx"), sb = src("src/layout/Sidebar.jsx"), sw = src("src/components/ui/switch.jsx");
+  assert(/role="dialog"/.test(ms) && /aria-modal="true"/.test(ms) && /aria-labelledby=\{titleId\}/.test(ms) && /useModalA11y/.test(ms), "wiring: ModalShell is a named modal dialog with the keyboard hook");
+  assert(/Escape/.test(hook) && /stack/.test(hook) && /onCloseRef/.test(hook) && /\[open\]\)/.test(hook), "wiring: Escape closes the top dialog only; re-renders don't re-run the open logic");
+  assert(/role === "admin" \? "p" : "h1"/.test(tb) && /"sr-only lg:not-sr-only">Search anything</.test(tb) && !/aria-label="Open search"/.test(tb), "wiring: admin pages keep one h1; the search button's name matches its text");
+  assert(/inert=/.test(sb) && /Close navigation menu/.test(sb) && /, home`/.test(sb), "wiring: the phone drawer is inert when closed, has a close button; the logo's name starts with its text");
+  assert(/border-ink-3 bg-surface/.test(sw) && !/bg-raised/.test(sw), "wiring: the off switch has a solid outline (not a pale fill)");
+  assert(/ActionMenu/.test(src("src/pages/AdminUsers.jsx")) && /useSearchParams/.test(src("src/pages/AdminUsers.jsx")) && /Deactivate instead/.test(src("src/pages/AdminUsers.jsx")), "wiring: accounts use one actions menu, URL filters, and offer Deactivate instead of Remove");
+  resetMockData(); client.setAuthToken(null);
+}

@@ -51,7 +51,8 @@ const PaletteBody = ({ open, onClose, items, onSelect }) => {
   if (!open) return null;
 
   const grouped = filtered.reduce((acc, item) => {
-    const section = item.section || "Actions";
+    // While searching, every hit sits under one heading (a "Recent" label on a search result was confusing).
+    const section = query.trim() ? "Matches" : item.section || "Actions";
     if (!acc[section]) acc[section] = [];
     acc[section].push(item);
     return acc;

@@ -2,28 +2,11 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Field, LoadingButton, inputClass } from "@/components/common";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/context/useToast";
 import { updateInstitution } from "@/api/institution";
 import { resizeLogo } from "@/lib/resizeLogo";
 import { LIMITS, INSTITUTION_FIELDS, validateInstitutionPatch } from "@/lib/institution";
-import { cn } from "@/lib/cn";
-
-const Switch = ({ checked, onChange, labelId, descId }) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    aria-labelledby={labelId}
-    aria-describedby={descId}
-    onClick={() => onChange(!checked)}
-    className={cn(
-      "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full border border-rule-2 transition-colors pointer-coarse:h-7 pointer-coarse:w-12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-      checked ? "bg-primary" : "bg-raised",
-    )}
-  >
-    <span aria-hidden="true" className={cn("size-4.5 rounded-full bg-surface shadow-sm transition-transform", checked ? "translate-x-5.5" : "translate-x-0.5")} />
-  </button>
-);
 
 // The institution's identity (shown on report headers and on every Profile) and the student-photo policy.
 export const InstitutionForm = ({ institution }) => {
@@ -70,15 +53,13 @@ export const InstitutionForm = ({ institution }) => {
     }
   };
 
-  const err = (k) => errors?.[k] && <span role="alert" className="mt-1.5 block text-[12px] text-danger">{errors[k]}</span>;
 
   return (
-    <form onSubmit={save} noValidate>
-      <section aria-labelledby="institution-identity" className="mb-10">
-        <h2 id="institution-identity" className="mb-3 text-[14px] font-semibold text-ink">Identity</h2>
-        <div className="mb-5 flex items-center gap-4">
-          <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-rule-2 bg-sunken">
-            {draft.logo ? <img src={draft.logo} alt="Institution logo preview" className="size-full object-contain" /> : <ImagePlus size={24} aria-hidden="true" className="text-ink-4" />}
+    <form onSubmit={save} noValidate className="flex flex-col gap-6">
+      <SettingsSection id="identity" title="Identity" description="Shown on the sign-in page, the sidebar, test pages, printed reports and every profile.">
+        <div className="mb-6 flex items-center gap-4">
+          <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-control)] border border-dashed border-rule-3 bg-sunken">
+            {draft.logo ? <img src={draft.logo} alt="Institution logo preview" className="size-full object-contain" /> : <ImagePlus size={24} aria-hidden="true" className="text-ink-3" />}
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
@@ -92,51 +73,69 @@ export const InstitutionForm = ({ institution }) => {
               )}
             </div>
             <input ref={fileRef} type="file" accept="image/png,image/jpeg" className="sr-only" tabIndex={-1} aria-label="Choose a logo image" onChange={pickLogo} />
-            <p className="mt-2 text-[12px] text-ink-3">PNG or JPEG. It is resized to 256 px wide in your browser.</p>
+            <p className="mt-2 text-[12px] text-ink-3">PNG or JPEG, square works best. It is resized to 256 px wide in your browser.</p>
             {(logoError || errors?.logo) && <p role="alert" className="mt-1 text-[12px] text-danger">{logoError || errors.logo}</p>}
           </div>
         </div>
-        <div className="max-w-[520px]">
-          <Field label="Institution name" hint={`${draft.name.length}/${LIMITS.name}`}>
-            <input className={inputClass} value={draft.name} maxLength={LIMITS.name} onChange={set("name")} aria-invalid={errors?.name ? true : undefined} />
-            {err("name")}
+        <div className="grid gap-x-5 tablet:grid-cols-2">
+          <Field label="Institution name" hint={`Full name, as on official documents · ${draft.name.length}/${LIMITS.name}`} error={errors?.name}>
+            <input className={inputClass} value={draft.name} maxLength={LIMITS.name} onChange={set("name")} autoComplete="organization" aria-invalid={errors?.name ? true : undefined} />
           </Field>
-          <Field label="Short name" hint="Used where space is tight, e.g. the sidebar">
+          <Field label="Short name" hint="Used where space is tight, e.g. the sidebar" error={errors?.shortName}>
             <input className={inputClass} value={draft.shortName} maxLength={LIMITS.shortName} onChange={set("shortName")} aria-invalid={errors?.shortName ? true : undefined} />
-            {err("shortName")}
-          </Field>
-          <Field label="City">
-            <input className={inputClass} value={draft.city} maxLength={LIMITS.city} onChange={set("city")} />
-            {err("city")}
-          </Field>
-          <Field label="Phone">
-            <input className={inputClass} type="tel" inputMode="tel" value={draft.phone} maxLength={20} onChange={set("phone")} aria-invalid={errors?.phone ? true : undefined} />
-            {err("phone")}
-          </Field>
-          <Field label="Email">
-            <input className={inputClass} type="email" inputMode="email" value={draft.email} maxLength={LIMITS.email} onChange={set("email")} aria-invalid={errors?.email ? true : undefined} />
-            {err("email")}
           </Field>
         </div>
-      </section>
+      </SettingsSection>
 
-      <section aria-labelledby="institution-photos" className="mb-8">
-        <h2 id="institution-photos" className="mb-3 text-[14px] font-semibold text-ink">Student photos</h2>
-        <div className="flex max-w-[560px] items-start gap-3.5 rounded-[var(--radius-control)] border border-rule bg-surface p-4">
-          <Switch checked={draft.allowStudentPhotos} onChange={(v) => setDraft((d) => ({ ...d, allowStudentPhotos: v }))} labelId="photos-label" descId="photos-desc" />
+      <SettingsSection id="contact" title="Contact" description="Printed on report headers and filled into the privacy policy, so parents know who to ask.">
+        <div className="grid gap-x-5 tablet:grid-cols-2">
+          <Field label="City" hint="Appears after the name in the privacy policy" error={errors?.city}>
+            <input className={inputClass} value={draft.city} maxLength={LIMITS.city} onChange={set("city")} autoComplete="address-level2" aria-invalid={errors?.city ? true : undefined} />
+          </Field>
+          <Field label="Phone" hint="The office number parents can call" error={errors?.phone}>
+            <input className={inputClass} type="tel" inputMode="tel" dir="ltr" value={draft.phone} maxLength={20} onChange={set("phone")} autoComplete="tel" placeholder="042-1234567" aria-invalid={errors?.phone ? true : undefined} />
+          </Field>
+          <Field label="Email" hint="The contact address in the privacy policy ({{contactEmail}})" error={errors?.email}>
+            <input className={inputClass} type="email" inputMode="email" dir="ltr" value={draft.email} maxLength={LIMITS.email} onChange={set("email")} autoComplete="email" placeholder="office@institution.edu" aria-invalid={errors?.email ? true : undefined} />
+          </Field>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection id="photos" title="Student photos" description="A privacy choice for the whole institution.">
+        <div className="flex items-start gap-3.5">
+          <Switch checked={draft.allowStudentPhotos} onChange={(v) => setDraft((d) => ({ ...d, allowStudentPhotos: v }))} labelId="photos-label" descId="photos-desc" className="mt-0.5" />
           <div>
-            <div id="photos-label" className="text-[14px] font-medium text-ink">Allow student photos</div>
-            <p id="photos-desc" className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
+            <div id="photos-label" className="text-[14px] font-medium text-ink">
+              Allow student photos <span className="ml-1 text-[12.5px] font-medium text-ink-3">· {draft.allowStudentPhotos ? "On" : "Off"}</span>
+            </div>
+            <p id="photos-desc" className="mt-1 max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
               Off by default. Turn it on only when parents have agreed to photos of their children being stored here. When on, students can add a photo and
               their teachers can see it. Classmates never see each other's photos.
             </p>
           </div>
         </div>
-      </section>
+      </SettingsSection>
 
-      <LoadingButton type="submit" loading={saving} disabled={!dirty}>
-        Save changes
-      </LoadingButton>
+      <div className="flex flex-wrap items-center gap-3">
+        <LoadingButton type="submit" loading={saving} disabled={!dirty}>
+          Save changes
+        </LoadingButton>
+        <span className="text-[12.5px] text-ink-3" aria-live="polite">{dirty ? "You have unsaved changes" : "All changes saved"}</span>
+      </div>
     </form>
   );
 };
+
+// One card per settings group; the id is the anchor the side menu links to.
+export const SettingsSection = ({ id, title, description, children, aside }) => (
+  <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 rounded-[var(--radius-container)] border border-rule bg-surface p-6 shadow-[var(--shadow-card)] max-narrow:p-4">
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 id={`${id}-title`} className="text-[16px] font-semibold text-ink">{title}</h2>
+        {description && <p className="mt-1 max-w-[62ch] text-[13px] leading-relaxed text-ink-3">{description}</p>}
+      </div>
+      {aside}
+    </div>
+    {children}
+  </section>
+);

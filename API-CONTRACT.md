@@ -106,7 +106,7 @@ All admin only (403 otherwise). Writes refetch the users and classes lists.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/api/users` | Every teacher and student (never admins); optional `?role=`. `[user]` shape above |
+| GET | `/api/users` | Every teacher and student (never admins); optional `?role=`. `[user]` shape above, and for students `hasParentContact: boolean` (a WhatsApp number is on file; never the number itself; U1-admin, vellum-64) |
 | POST | `/api/users` | `{ name, email, role: "teacher"\|"student", classId? (required for students), classIds? (teachers), guardianName?, guardianPhone? (students only, F12c1: `400 INVALID_GUARDIAN` if the number is not a Pakistani mobile; `400 INVALID_INPUT` for a teacher; nothing is created on error) }`. Server lowercases the email, assigns a student's roll number (`11A-07`) and returns the user plus a one-time `temporaryPassword` (never emailed, never readable again; the account has `mustChangePassword: true`). `409 DUPLICATE_EMAIL`, `400 INVALID_INPUT` |
 | POST | `/api/users/:id/reset-password` | No body → `{ temporaryPassword }`, shown once; sets `mustChangePassword`; writes `auth.password_reset` (actor = admin, entity = the account, never the password). `404`; `409 CANNOT_CHANGE_ADMIN` |
 | PUT | `/api/users/:id` | `{ active? }` and/or, for students, `{ classId }` (`null` unassigns; a new class gets a new roll). `409 CANNOT_CHANGE_SELF` / `CANNOT_CHANGE_ADMIN` |

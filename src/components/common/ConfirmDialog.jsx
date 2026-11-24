@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { AlertTriangle, Info } from "lucide-react";
 import { useModalA11y } from "@/hooks/useModalA11y";
 import { cn } from "@/lib/cn";
@@ -15,8 +16,13 @@ export const ConfirmDialog = ({
   tone = "danger",
   onConfirm,
   onClose,
+  // Optional safer alternative shown between Cancel and the main action (e.g. "Deactivate instead").
+  secondaryLabel,
+  onSecondary,
 }) => {
   const ref = useModalA11y(open, onClose);
+  const titleId = useId();
+  const msgId = useId();
   if (!open) return null;
 
   const Ico = tone === "danger" ? AlertTriangle : Info;
@@ -30,6 +36,8 @@ export const ConfirmDialog = ({
         ref={ref}
         role="alertdialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={message ? msgId : undefined}
         onClick={(e) => e.stopPropagation()}
         className="glass-strong w-full max-w-[440px] animate-qin rounded-[var(--radius-modal)] px-8 pb-6 pt-8 text-center shadow-[var(--shadow-modal)] max-narrow:max-w-none max-narrow:rounded-b-none max-narrow:px-5 max-narrow:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
       >
@@ -43,22 +51,35 @@ export const ConfirmDialog = ({
         >
           <Ico size={22} />
         </div>
-        <h2 className="mb-2 font-display text-[18px] font-semibold tracking-[-0.01em] text-ink">
+        <h2 id={titleId} className="mb-2 font-display text-[18px] font-semibold tracking-[-0.01em] text-ink">
           {title}
         </h2>
         {message && (
-          <p className="mb-6 text-[14px] leading-relaxed text-ink-3">
+          <p id={msgId} className="mb-6 text-[14px] leading-relaxed text-ink-3">
             {message}
           </p>
         )}
         <div className="flex flex-col-reverse gap-2 narrow:flex-row narrow:justify-center">
           <Button
             onClick={onClose} variant="ghost"
+            // Destructive: the safe choice gets the first focus, so Enter never deletes by accident.
+            data-autofocus={tone === "danger" ? true : undefined}
           >
             {cancelLabel}
           </Button>
+          {secondaryLabel && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onSecondary?.();
+                onClose?.();
+              }}
+            >
+              {secondaryLabel}
+            </Button>
+          )}
           <Button
-            data-autofocus
+            data-autofocus={tone === "danger" ? undefined : true}
             variant={tone === "danger" ? "destructive" : "default"}
             onClick={() => {
               onConfirm?.();

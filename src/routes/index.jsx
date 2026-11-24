@@ -99,7 +99,7 @@ export const router = createBrowserRouter([
         path: "admin",
         element: <RequireRole role="admin" />,
         children: [
-          { index: true, element: <AdminDashboard />, handle: { title: "Admin overview" } },
+          { index: true, element: <AdminDashboard />, handle: { title: "Overview" } },
           route("users", AdminUsers, "Accounts"),
           route("institution", AdminInstitution, "Institution"),
           route("profile", Profile, "Profile"),
@@ -114,10 +114,10 @@ export const router = createBrowserRouter([
             path: "audit",
             children: [
               { index: true, element: <AdminAuditOverview />, handle: { title: "Audit" } },
-              route("tests", AdminAuditTests, "Audit"),
+              route("tests", AdminAuditTests, "Audit · Tests"),
               route("tests/:testId", AdminAuditTest, "Test audit"),
-              route("teachers", AdminAuditTeachers, "Audit"),
-              route("events", AdminAuditEvents, "Audit"),
+              route("teachers", AdminAuditTeachers, "Audit · Teachers"),
+              route("events", AdminAuditEvents, "Audit · Events"),
               route("teachers/:teacherId", AdminAuditTeacher, "Teacher audit"),
             ],
           },
