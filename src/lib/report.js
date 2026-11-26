@@ -33,7 +33,8 @@ export const REPORT_SECTIONS = [
 ];
 export const DEFAULT_REPORT_OPTIONS = {
   preset: "weekly",
-  period: "thisWeek",
+  // "This month" (not "this week"): early in a week a weekly report is usually empty.
+  period: "thisMonth",
   subject: "",
   language: "en",
   sections: Object.fromEntries(REPORT_SECTIONS.map((s) => [s.id, true])),

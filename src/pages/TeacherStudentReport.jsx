@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { ArrowLeft, ArrowRight, Printer } from "lucide-react";
-import { EmptyState, PageError, PageLoading } from "@/components/common";
+import { EmptyState, PageError, PageHeader, PageLoading, Scope } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { ReportOptions } from "@/components/teacher-report/ReportOptions";
 import { ReportSheet } from "@/components/teacher-report/ReportSheet";
@@ -96,21 +96,39 @@ const Report = ({ studentId }) => {
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 tablet:px-8 tablet:py-8">
-      <div className="no-print mb-5 flex flex-wrap items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={back}><ArrowLeft size={14} />Back to student</Button>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {nextId && (
-            <Button variant="outline" size="sm" onClick={() => navigate(`/teacher/analytics/${encodeURIComponent(nextId)}/report`, { state: location.state })}>
-              Next student<ArrowRight size={14} />
-            </Button>
+      <PageHeader
+        className="no-print"
+        crumbs={[{ label: <Scope /> }, { label: "Analytics", to: "/teacher/analytics" }, { label: data?.student?.name ?? "Student", to: `/teacher/analytics/${encodeURIComponent(studentId)}` }, { label: "Parent report" }]}
+        title={data?.student?.name ? `Parent report: ${data.student.name}` : "Parent report"}
+        intro="Choose what the report covers, check the preview, then save it as a PDF to send."
+        actions={
+          <>
+            <Button variant="ghost" onClick={back}><ArrowLeft size={14} aria-hidden="true" />Back to student</Button>
+            {nextId && (
+              <Button variant="outline" onClick={() => navigate(`/teacher/analytics/${encodeURIComponent(nextId)}/report`, { state: location.state })}>
+                Next student<ArrowRight size={14} aria-hidden="true" />
+              </Button>
+            )}
+            <Button onClick={savePdf} disabled={!report || report.empty || busy}><Printer size={14} aria-hidden="true" />Save PDF</Button>
+          </>
+        }
+      />
+      {report?.empty && (
+        // Say why "Save PDF" is off, and offer the fix in one tap.
+        <p role="status" className="no-print mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[var(--radius-control)] border border-warning/30 bg-warning-dim px-4 py-2.5 text-[13px] font-medium text-warning">
+          Nothing to report for this choice yet, so there is no PDF to save.
+          {!isTest && options.period !== "thisMonth" && (
+            <Button size="sm" variant="outline" onClick={() => setOptions({ ...options, period: "thisMonth" })}>Show this month</Button>
           )}
-          <Button size="sm" onClick={savePdf} disabled={!report || report.empty || busy}><Printer size={14} />Save PDF</Button>
-        </div>
-      </div>
+          {!isTest && finalTests.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setOptions({ ...options, preset: "test" })}>Report on one test</Button>
+          )}
+        </p>
+      )}
 
       <div className="grid gap-6 print:block lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-        <aside className="no-print">
-          <h1 className="mb-4 font-serif text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink">Report</h1>
+        <aside className="no-print" aria-label="Report options">
+          <h2 className="mb-4 text-[14px] font-semibold text-ink">What the report covers</h2>
           <ReportOptions
             options={options}
             onOptions={setOptions}

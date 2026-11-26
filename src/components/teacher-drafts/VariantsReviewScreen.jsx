@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ArrowLeft, Eye, Users, CheckCircle2, FileEdit, Search as SearchIcon } from "lucide-react";
+import { Eye } from "lucide-react";
 import { DraftReviewScreen } from "./DraftReviewScreen";
-import { Chip, ChipRow, EmptyState, MetricCard, StatusDot, Td, Th } from "@/components/common";
+import { Chip, ChipRow, EmptyState, PageHeader, SearchField, StatusDot, Td, Th } from "@/components/common";
 import { sumMarks, validateQuestions } from "@/lib/questions";
 import { Button } from "@/components/ui/button";
 
@@ -16,7 +16,7 @@ export const VariantsReviewScreen = ({
   onBack,
   onPreview,
   onPublishAll,
-  backLabel = "← Back to drafts",
+  backLabel = "Back to tests",
   scope = "",
   title,
   readOnly = false,
@@ -63,7 +63,7 @@ export const VariantsReviewScreen = ({
         lockReason={lockReason}
         lockSummary={lockSummary}
         saveState={saveState}
-        backLabel="← Back to student list"
+        backLabel="Back to student list"
         heading={`Review — ${v.studentName}`}
         crumbLabel={`Review draft · ${v.studentName}`}
       />
@@ -84,95 +84,34 @@ export const VariantsReviewScreen = ({
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <Button
-        onClick={onBack} variant="ghost" size="sm" className="mb-3"
-      >
-        <ArrowLeft size={13} />
-        {backLabel.replace("← ", "")}
-      </Button>
+      <PageHeader
+        crumbs={[...(scope ? [{ label: scope }] : []), { label: "Tests", to: "/teacher/drafts" }, { label: title || "Student versions" }]}
+        title={title ? `${title}: one version per student` : "Review each student's test"}
+        intro={
+          <>
+            {variants.length} personalised versions · {questionsPerVariant} questions · {marksPerVariant} marks each · {reviewed.size} of {variants.length} spot-checked.
+            Check a few, fix anything that looks off, then publish them all at once; you don't need to open every one.
+            {invalidCount > 0 && <span className="font-medium text-warning"> {invalidCount} {invalidCount === 1 ? "version has" : "versions have"} issues that will block publishing.</span>}
+          </>
+        }
+        actions={
+          <>
+            {onPreview && (
+              <Button onClick={() => onPreview(0)} variant="outline">
+                <Eye size={13} aria-hidden="true" /> Preview
+              </Button>
+            )}
+            {onPublishAll && (
+              <Button onClick={onPublishAll} disabled={publishDisabled}>
+                Publish all {variants.length}
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        {scope && <>{scope} <span className="text-ink-3">/</span> </>}Drafts{" "}
-        <span className="text-ink-3">/</span> Review variants
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            {title ? `${title} — student variants` : "Review each student's test"}
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            {variants.length} personalized variants · {questionsPerVariant}{" "}
-            questions · {marksPerVariant} marks each. Spot-check a few, fix
-            anything that looks off, then publish all at once — you don't need
-            to open every one.
-            {invalidCount > 0 &&
-              ` ${invalidCount} ${invalidCount === 1 ? "variant has" : "variants have"} issues that will block publishing.`}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {onPreview && (
-            <Button onClick={() => onPreview(0)} variant="outline">
-              <Eye size={13} /> Preview
-            </Button>
-          )}
-          {onPublishAll && (
-            <Button onClick={onPublishAll} disabled={publishDisabled}>
-              Publish all {variants.length} →
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* KPI bento */}
-      <div className="bento mb-10">
-        <MetricCard
-          icon={Users}
-          iconTone="primary"
-          label="Students"
-          value={variants.length}
-          delta="Personalized"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="success"
-          label="Reviewed"
-          value={reviewed.size}
-          unit={`/ ${variants.length}`}
-          delta="Your spot-checks"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={FileEdit}
-          iconTone="neutral"
-          label="Questions each"
-          value={questionsPerVariant}
-          delta="Uniform across variants"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="warning"
-          label="Marks each"
-          value={marksPerVariant}
-          delta="Equal weight"
-          deltaTone="success"
-        />
-      </div>
-
-      {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2.5 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[360px]">
-          <SearchIcon size={14} className="shrink-0 text-ink-3" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by student…"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-          />
-        </label>
+        <SearchField label="Search by student" value={query} onChange={setQuery} placeholder="Search by student…" className="w-full narrow:w-[300px]" />
         <ChipRow>
           {["all", "reviewed", "unreviewed"].map((f) => (
             <Chip
@@ -192,22 +131,21 @@ export const VariantsReviewScreen = ({
 
       {/* Student list — table shell with card shadow */}
       <div className="overflow-hidden rounded-[var(--radius-container)] border border-rule bg-surface shadow-[var(--shadow-card)]">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40" tabIndex={0} role="region" aria-label="Student versions">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-rule-2">
                 <Th>Student</Th>
                 <Th>Weak topic targeted</Th>
-                <Th className="text-right">Questions</Th>
-                <Th className="text-right">Marks</Th>
+                <Th className="text-right max-lg:hidden">Questions</Th>
+                <Th className="text-right max-lg:hidden">Marks</Th>
                 <Th>Status</Th>
-                <Th className="w-12"></Th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-0">
+                  <td colSpan={5} className="p-0">
                     <EmptyState
                       compact
                       title="No students match"
@@ -225,8 +163,17 @@ export const VariantsReviewScreen = ({
                     onClick={() => openVariant(idx)}
                     className="cursor-pointer border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50"
                   >
-                    <Td className="text-[13.5px] font-medium text-ink">
-                      {v.studentName}
+                    <Td className="text-[13.5px]">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openVariant(idx);
+                        }}
+                        className="inline-flex min-h-8 items-center rounded-sm text-left font-medium text-ink hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+                      >
+                        {v.studentName}
+                      </button>
                     </Td>
                     <Td>
                       {v.weakTopic ? (
@@ -245,10 +192,10 @@ export const VariantsReviewScreen = ({
                         <span className="text-ink-3" title="No topic is below target for this student">—</span>
                       )}
                     </Td>
-                    <Td className="text-right font-mono tabular-nums">
+                    <Td className="text-right font-mono tabular-nums max-lg:hidden">
                       {v.questions.length}
                     </Td>
-                    <Td className="text-right font-mono tabular-nums">
+                    <Td className="text-right font-mono tabular-nums max-lg:hidden">
                       {v.questions.reduce((s, q) => s + q.marks, 0)}
                     </Td>
                     <Td>
@@ -256,13 +203,23 @@ export const VariantsReviewScreen = ({
                         {isReviewed ? "Reviewed" : "Not reviewed"}
                       </StatusDot>
                     </Td>
-                    <Td className="text-right text-ink-3">→</Td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="no-print sticky bottom-3 z-10 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-bento)] border border-rule bg-surface/95 px-4 py-3 shadow-[var(--shadow-raised)] backdrop-blur-sm">
+        <Button onClick={onBack} variant="ghost">
+          {backLabel}
+        </Button>
+        {onPublishAll && (
+          <Button onClick={onPublishAll} disabled={publishDisabled} className="max-narrow:flex-auto">
+            Publish all {variants.length}
+          </Button>
+        )}
       </div>
     </div>
   );

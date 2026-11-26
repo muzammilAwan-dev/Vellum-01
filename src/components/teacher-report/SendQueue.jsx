@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { WhatsAppText } from "@/components/common/WhatsAppText";
 import { ChevronDown, Copy, ExternalLink, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ParentContactBody } from "@/components/guardian/ParentContact";
@@ -96,7 +97,7 @@ const Row = ({ item, request, style, teacherName, done, onDone }) => {
           )}
           {built && (
             <>
-              <pre dir="auto" className="whitespace-pre-wrap rounded-[var(--radius-control)] border border-rule bg-surface px-4 py-3 font-[inherit] text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]">{built.text}</pre>
+              <WhatsAppText text={built.text} className="rounded-[var(--radius-control)] border border-rule bg-surface px-4 py-3 text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]" />
               {state === "too-long" && <p className="text-[12px] text-warning">Too long for a WhatsApp link even after trimming. Copy it and paste it into WhatsApp.</p>}
               <label className="block text-[12.5px] font-medium text-ink-2">
                 Add a note for this parent (optional)

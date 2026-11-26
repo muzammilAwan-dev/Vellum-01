@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { ArrowDownUp, AlertTriangle, ClipboardCheck, PencilLine } from "lucide-react";
-import { EmptyState, MetricCard, PageError, PageLoading, TableShell, Td, Th } from "@/components/common";
+import { EmptyState, PageError, PageHeader, PageLoading, Scope, TableShell, Td, Th } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { useMyAudit } from "@/hooks/useAudit";
 import { formatDateTime } from "@/lib/time";
@@ -11,7 +10,7 @@ const PAGE = 50;
 const Marks = ({ i }) =>
   i.afterMarks == null ? null : (
     <span className="font-mono tabular-nums">
-      {i.beforeMarks != null && i.beforeMarks !== i.afterMarks ? `${i.beforeMarks} → ` : ""}
+      {i.beforeMarks != null && i.beforeMarks !== i.afterMarks ? <>{i.beforeMarks} <span aria-label="changed to">→</span> </> : ""}
       {i.afterMarks}
       {i.max != null ? ` / ${i.max}` : ""}
     </span>
@@ -29,36 +28,37 @@ const TeacherAudit = () => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 text-[13px] font-medium text-ink-3">Insights <span>/</span> Grading history</div>
-      <div className="mb-8 min-w-0">
-        <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">Grading history</h1>
-        <p className="mt-2 max-w-[700px] text-[14px] leading-relaxed text-ink-2">
-          Every mark you approved or changed, and the tests you published or edited. Vellum keeps this record so marks
-          can be checked afterwards; administrators can see it too.
-        </p>
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Grading history" }]}
+        title="Grading history"
+        intro="Every mark you approved or changed, and the tests you published or edited. Vellum keeps this record so marks can be checked afterwards; administrators can see it too."
+      />
 
-      <div className="bento mb-8">
-        <MetricCard icon={ClipboardCheck} iconTone="primary" label="Answers reviewed" value={totals.reviewed} delta="Approved or changed" deltaTone="success" />
-        <MetricCard icon={PencilLine} iconTone="primary" label="Changed from AI" value={totals.reviewed ? pct(totals.overrideRate) : "—"} delta={`${totals.overrides} marks`} deltaTone="success" />
-        <MetricCard icon={ArrowDownUp} iconTone="neutral" label="Direction" value={`${totals.upward} up · ${totals.downward} down`} delta="Changes you made" deltaTone="success" />
-        <MetricCard
-          icon={AlertTriangle}
-          iconTone={totals.afterRelease > 0 ? "danger" : "neutral"}
-          label="After release"
-          value={totals.afterRelease}
-          delta={totals.afterRelease > 0 ? "Needed a reason" : "None"}
-          deltaTone={totals.afterRelease > 0 ? "danger" : "success"}
-        />
-      </div>
+      {/* One summary sentence; tiles of zeros said nothing to a new teacher. */}
+      <p className="mb-6 text-[13.5px] leading-relaxed text-ink-2">
+        {totals.reviewed === 0 ? (
+          "You haven't reviewed any answers yet."
+        ) : (
+          <>
+            <span className="font-semibold text-ink">{totals.reviewed} {totals.reviewed === 1 ? "answer" : "answers"} reviewed</span>
+            {" · "}
+            {totals.overrides} changed from the AI's mark ({pct(totals.overrideRate)})
+            {totals.overrides > 0 && <>, {totals.upward} up and {totals.downward} down</>}
+            {totals.afterRelease > 0 && (
+              <span className="font-medium text-warning"> · {totals.afterRelease} after results were released (each needed a reason)</span>
+            )}
+            .
+          </>
+        )}
+      </p>
 
       {items.length === 0 ? (
         <EmptyState compact title="Nothing yet" body="Marks you approve or change, and tests you publish, will appear here." />
       ) : (
-        <TableShell>
+        <TableShell label="Grading history">
           <thead>
             <tr className="border-b border-rule-2">
-              <Th>What</Th>
+              <Th>What happened</Th>
               <Th className="max-tablet:hidden">Test</Th>
               <Th className="max-tablet:hidden">Student</Th>
               <Th className="max-narrow:hidden">Marks</Th>

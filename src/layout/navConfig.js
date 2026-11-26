@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   History,
   Building2,
+  Repeat,
 } from "lucide-react";
 
 export const NAV_BY_ROLE = {
@@ -36,6 +37,7 @@ export const NAV_BY_ROLE = {
       items: [
         { id: "subjects", icon: Layers, label: "Subjects" },
         { id: "materials", icon: Upload, label: "Materials" },
+        { id: "clusters", icon: Repeat, label: "Recurring questions" },
         { id: "bank", icon: Library, label: "Question bank" },
       ],
     },

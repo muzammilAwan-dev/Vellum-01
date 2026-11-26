@@ -114,7 +114,7 @@ const BankQuestionForm = ({ open, onClose, subjectId, question, duplicate = fals
                   checked={q.correctIndex === i}
                   onChange={() => set({ correctIndex: i })}
                   aria-label={`Option ${String.fromCharCode(65 + i)} is correct`}
-                  className="size-4 accent-[var(--color-primary)]"
+                  className="size-5 shrink-0 accent-[var(--color-primary)]"
                 />
                 <span className="w-5 font-mono text-[12px] font-bold text-ink-3">{String.fromCharCode(65 + i)}</span>
                 {q.type === "truefalse" ? (

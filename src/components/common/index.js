@@ -8,7 +8,7 @@ export { BRAND } from "./brand";
 export { ChipRow, Chip, FilterButton } from "./Chips";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { Conn } from "./Conn";
-export { Th, Td, TableShell } from "./DataTable";
+export { Th, Td, TableShell, RowToggle } from "./DataTable";
 export { EmptyState } from "./EmptyState";
 export { Field, FieldGroup } from "./FormField";
 export { inputClass } from "./inputClass";

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Download, FileText, Send, TrendingUp, Users, Target } from "lucide-react";
-import { Bento, EmptyState, MetricCard, PageError, PageLoading, PrintHeader, SectionHeader, Scope } from "@/components/common";
+import { FileText, Send, TrendingUp, Users, Target } from "lucide-react";
+import { Bento, EmptyState, MetricCard, PageError, PageHeader, PageLoading, PrintHeader, SectionHeader, Scope } from "@/components/common";
+import { ActionMenu } from "@/components/ui/menu";
 import { SmallMultiple } from "@/components/common/charts/SmallMultiple";
 import { Trend } from "@/components/common/charts/Trend";
 import { Button } from "@/components/ui/button";
@@ -44,43 +45,40 @@ export const StudentProfile = ({ studentId, onBack, onReport }) => {
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
       <PrintHeader institution={institution} title={`Student report · ${student.name}`} />
-      <Button onClick={onBack} variant="ghost" size="sm" className="no-print mb-3">
-        ← Back to analytics
-      </Button>
-
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Students <span className="text-ink-3">/</span> {student.name}
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Analytics", to: "/teacher/analytics" }, { label: student.name }]}
+        title={
+          <>
             {student.name} <span className="text-ink-3">· {student.cls}</span>
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">{sentence}</p>
-          {summary.awaiting > 0 && (
-            <p className="mt-1 text-[13px] text-ink-3">
-              {summary.awaiting === 1 ? "1 attempt is" : `${summary.awaiting} attempts are`} still being marked and isn't counted yet.
-            </p>
-          )}
-        </div>
-        <div className="no-print flex shrink-0 flex-wrap gap-2">
-          {onReport && (
-            <Button onClick={onReport}>
-              <FileText size={13} />
-              Make parent report
+          </>
+        }
+        intro={
+          <>
+            {sentence}
+            {summary.awaiting > 0 && (
+              <span className="mt-1 block text-[13px] text-ink-3">
+                {summary.awaiting === 1 ? "1 attempt is" : `${summary.awaiting} attempts are`} still being marked and isn't counted yet.
+              </span>
+            )}
+          </>
+        }
+        actions={
+          <div className="no-print flex flex-wrap items-center gap-2 max-narrow:w-full max-narrow:[&>*:not([aria-haspopup])]:flex-auto">
+            {/* One parent-report job, two ways: make it (and print it), or send it on WhatsApp. */}
+            {onReport && (
+              <Button onClick={onReport}>
+                <FileText size={13} aria-hidden="true" />
+                Make parent report
+              </Button>
+            )}
+            <Button onClick={() => setSharing(true)} variant="outline">
+              <Send size={13} aria-hidden="true" />
+              Share report
             </Button>
-          )}
-          <Button onClick={() => setSharing(true)} variant="outline">
-            <Send size={13} />
-            Share report
-          </Button>
-          <Button onClick={() => window.print()} variant="outline">
-            <Download size={13} />
-            Print / save as PDF
-          </Button>
-        </div>
-      </div>
+            <ActionMenu label={`More for ${student.name}`} items={[{ id: "print", label: "Print this page", onSelect: () => window.print() }]} />
+          </div>
+        }
+      />
 
       {!last ? (
         <EmptyState title="No graded tests yet" body="Their scores and topic profile appear once an attempt is fully marked." />
@@ -119,7 +117,7 @@ export const StudentProfile = ({ studentId, onBack, onReport }) => {
           </div>
 
           <section className="mb-14">
-            <SectionHeader label={`Score trajectory · T1 → T${trend.length} · vs class average`} />
+            <SectionHeader label="Scores over time" meta={`tests 1 to ${trend.length}, against the class average`} />
             <Bento>
               <div className="mb-1 text-[13px] font-semibold text-ink">Student (solid) · Class average (dashed)</div>
               <div className="mb-5 text-[13px] text-ink-3">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router";
 import {
-  Bento, Chip, ChipRow, Conn, EmptyState, MetricCard, PageError, PageLoading, Scope, SectionHeader,
+  Bento, Chip, ChipRow, EmptyState, PageError, PageHeader, PageLoading, Scope, SectionHeader,
 } from "@/components/common";
 import { QuestionSplitModal } from "@/components/teacher-clusters/QuestionSplitModal";
 import { Button } from "@/components/ui/button";
@@ -50,23 +50,16 @@ const TeacherClusters = () => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Recurring questions
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Recurring <span className="text-ink-3">questions</span>
-          </h1>
-          <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            {papers.length
-              ? `Across ${papers.length} past ${papers.length === 1 ? "paper" : "papers"} we found ${questionCount} questions, grouped by meaning. A group's size biases the next test toward topics that matter.`
-              : "Past papers show which questions keep coming back. Upload some and they'll be grouped here."}
-          </p>
-        </div>
-        <Conn state="live" />
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Recurring questions" }]}
+        title="Recurring questions"
+        intro={
+          papers.length
+            ? `Across ${papers.length} past ${papers.length === 1 ? "paper" : "papers"} (${yearRange(papers)}) we found ${questionCount} questions, grouped by meaning into ${clusters.length} groups. A group's size biases the next test toward topics that matter.`
+            : "Past papers show which questions keep coming back. Upload some and they'll be grouped here."
+        }
+        actions={papers.length ? <Button onClick={() => navigate("/teacher/drafts/new")}>Make a test from these</Button> : null}
+      />
 
       {papers.length === 0 ? (
         <EmptyState
@@ -77,25 +70,16 @@ const TeacherClusters = () => {
         />
       ) : (
         <>
-          <div className="bento mb-10">
-            <MetricCard label="Past papers" value={papers.length} delta={yearRange(papers)} deltaTone="success" />
-            <MetricCard label="Questions found" value={questionCount} delta={`Across ${papers.length} ${papers.length === 1 ? "paper" : "papers"}`} deltaTone="success" />
-            <MetricCard label="Groups" value={clusters.length} delta={STRICTNESS.find((s) => s.id === strictness).label + " grouping"} deltaTone="success" />
-            <MetricCard
-              variant="featured"
-              label="Strongest signal"
-              value={top ? top.paperCount : 0}
-              unit="×"
-              delta={top ? top.label : "—"}
-              deltaTone="success"
-            />
-          </div>
+          {top && (
+            <p className="mb-6 rounded-[var(--radius-control)] border border-primary/25 bg-primary-soft px-4 py-3 text-[13.5px] text-ink-2">
+              <span className="font-semibold text-ink">Strongest signal:</span> "{top.label}" came up in {top.paperCount} {top.paperCount === 1 ? "paper" : "papers"}.
+            </p>
+          )}
 
           <section className="mb-10">
             <SectionHeader
-              label="Groups · most recurring first"
-              action="Draft a test →"
-              onAction={() => navigate("/teacher/drafts/new")}
+              label="Groups"
+              meta="most recurring first"
             />
             <div className="mb-3 flex flex-wrap items-center gap-3">
               <span className="text-[12.5px] font-medium text-ink-3">Grouping</span>

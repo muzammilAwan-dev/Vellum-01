@@ -52,13 +52,14 @@ export const MetricCard = ({
       data-metric=""
       onClick={onClick}
       className={cn(
-        "max-narrow:p-4",
+        // Phones: a compact tile (label, number, one line) so four of them don't fill the first screen.
+        "max-narrow:p-3.5",
         span,
         "text-left",
         onClick && "cursor-pointer hover:-translate-y-0.5 hover:shadow-[var(--shadow-raised)] focus-visible:-translate-y-0.5 dark:hover:border-rule-3"
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 max-narrow:hidden">
         {Icon && (
           <div className={cn("grid size-10 place-items-center rounded-xl shadow-[var(--shadow-card)] max-narrow:size-9", ICON_TONE[iconTone])}>
             <Icon size={18} />
@@ -71,12 +72,12 @@ export const MetricCard = ({
         )}
       </div>
 
-      <div className="mt-auto flex flex-col pt-6 max-narrow:pt-4">
-        <div className="text-[13px] font-medium text-ink-2">
+      <div className="mt-auto flex flex-col pt-6 max-narrow:pt-0">
+        <div className="text-[13px] font-medium text-ink-2 max-narrow:text-[12.5px] max-narrow:leading-snug">
           {label}
         </div>
         <div className="mt-1.5 flex items-end justify-between gap-3">
-          <div className="flex items-baseline gap-1.5 font-display text-[34px] font-bold leading-none max-narrow:text-[28px] tracking-[-0.03em] tabular-nums text-ink">
+          <div className="flex items-baseline gap-1.5 font-display text-[34px] font-bold leading-none max-narrow:text-[24px] tracking-[-0.03em] tabular-nums text-ink">
             {value}
             {unit && <span className="text-[14px] font-medium text-ink-3">{unit}</span>}
           </div>
@@ -84,7 +85,7 @@ export const MetricCard = ({
         </div>
         {/* Phones: the delta moves under the value (no room beside the icon in a 2-up card). */}
         {delta && (
-          <div className={cn("mt-1.5 text-[12px] font-medium narrow:hidden", DELTA_TONE[deltaTone])}>{delta}</div>
+          <div className={cn("mt-1 line-clamp-2 text-[12px] font-medium leading-snug narrow:hidden", DELTA_TONE[deltaTone])}>{delta}</div>
         )}
       </div>
     </Bento>

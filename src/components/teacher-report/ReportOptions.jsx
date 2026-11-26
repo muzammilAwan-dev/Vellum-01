@@ -69,12 +69,12 @@ export const ReportOptions = ({ options, onOptions, subjects, tests, testId, onT
         <legend className="mb-1.5 text-[12.5px] font-semibold text-ink-2">Sections</legend>
         <div className="grid gap-1.5">
           {REPORT_SECTIONS.map((s) => (
-            <label key={s.id} className="flex cursor-pointer items-center gap-2.5 text-[13px] text-ink-2">
+            <label key={s.id} className="flex min-h-9 cursor-pointer items-center gap-2.5 text-[13px] text-ink-2">
               <input
                 type="checkbox"
                 checked={options.sections[s.id] !== false}
                 onChange={(e) => set({ sections: { ...options.sections, [s.id]: e.target.checked } })}
-                className="size-4 cursor-pointer accent-[var(--color-primary)]"
+                className="size-5 cursor-pointer accent-[var(--color-primary)]"
               />
               {s.label}
             </label>

@@ -41,6 +41,26 @@ const MCQ_TEMPLATES = [
     ],
     correctIndex: 1,
   },
+  {
+    text: "If the distance between two masses doubles, the gravitational force between them becomes:",
+    options: ["Half as strong", "A quarter as strong", "Twice as strong", "Four times as strong"],
+    correctIndex: 1,
+  },
+  {
+    text: "What is the SI unit of magnetic flux density?",
+    options: ["Weber", "Tesla", "Henry", "Gauss"],
+    correctIndex: 1,
+  },
+  {
+    text: "In Young's double-slit experiment, what happens to the fringe width if the slit separation is halved?",
+    options: ["It halves", "It doubles", "It stays the same", "It becomes four times larger"],
+    correctIndex: 1,
+  },
+  {
+    text: "A car travels 120 km in 2 hours. What is its average speed?",
+    options: ["40 km/h", "60 km/h", "80 km/h", "240 km/h"],
+    correctIndex: 1,
+  },
 ];
 
 const SHORT_TEMPLATES = [
@@ -137,9 +157,21 @@ const pickTemplate = (type, index) => {
   return pool[((index % pool.length) + pool.length) % pool.length];
 };
 
+// The topic a template is really about, so a demo draft never tags a gas-law question as
+// "Kinematics" (U1-teacher T-37). Keyword rules, most specific first.
+const TOPIC_RULES = [
+  [/isothermal|adiabatic|ideal gas|internal energy/i, "Thermodynamics"],
+  [/gravitational|masses doubles/i, "Gravitation"],
+  [/magnetic|flux|tesla/i, "Electromagnetism"],
+  [/slit|fringe|lens|refraction/i, "Wave Optics"],
+  [/thrown|height|average speed|fall with|free fall|travels \d+ km/i, "Kinematics"],
+  [/newton|inertia|force|block|bus stops|braking|at rest/i, "Newton's Laws of Motion"],
+];
+const topicOfTemplate = (tpl) => TOPIC_RULES.find(([re]) => re.test(tpl.text))?.[1] ?? null;
+
 // Teacher guidance takes priority over automatic signals (§7.6): when focus
-// topics are given, questions are tagged from those; otherwise they cycle
-// through every known topic.
+// topics are given, questions are tagged from those; otherwise each question keeps the topic its
+// template is about (falling back to cycling through every known topic).
 const topicNames = (focusTopics) =>
   focusTopics?.length ? focusTopics : DEFAULT_TOPICS;
 
@@ -166,7 +198,7 @@ export const buildQuestions = (mix, { seed = 0, topics } = {}) => {
           correctIndex: tpl.correctIndex,
           expectedAnswer: tpl.expectedAnswer,
           rubric: tpl.rubric,
-          topic: names[topicSeed++ % names.length],
+          topic: topics?.length ? names[topicSeed++ % names.length] : (topicOfTemplate(tpl) ?? names[topicSeed++ % names.length]),
         }),
       );
     }

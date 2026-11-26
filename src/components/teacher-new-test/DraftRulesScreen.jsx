@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Users, Sparkles } from "lucide-react";
-import { NumberStepper } from "./NumberStepper";
+import { NumberStepper } from "@/components/common/NumberStepper";
 import { ScopeEstimate } from "./ScopeEstimate";
 import { TopicInput } from "./TopicInput";
-import { Bento, Chip, ChipRow, Conn, SectionHeader } from "@/components/common";
+import { Bento, Chip, ChipRow, PageHeader, SectionHeader } from "@/components/common";
 import { inputClass } from "@/components/common/inputClass";
 import { QuestionMixBuilder } from "@/components/common/QuestionMixBuilder";
 import { DEFAULT_MIX } from "@/lib/questions";
@@ -112,24 +112,11 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        {scope && <>{scope} <span className="text-ink-3">/</span> </>}New test{" "}
-        <span className="text-ink-3">/</span> Rules
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Set the rules
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            One screen, one job. Set how many of each question type you want,
-            how many marks they carry, and any guidance for the AI. You'll
-            review the draft on the next screen.
-          </p>
-        </div>
-        <Conn state="live" />
-      </div>
+      <PageHeader
+        crumbs={[...(scope ? [{ label: scope }] : []), { label: "Tests", to: "/teacher/drafts" }, { label: "New test" }]}
+        title="New test"
+        intro="Set how many of each question type you want, how many marks they carry, and any guidance for the AI. You'll check every question on the next screen before anything reaches students."
+      />
 
       <div className="grid gap-5">
         {/* ═══ Form column ═══ */}
@@ -212,6 +199,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                 max={200}
                 step={5}
                 suffix="marks"
+                label="Target total in marks"
               />
             </div>
 
@@ -232,6 +220,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                 max={180}
                 step={5}
                 suffix="min"
+                label="Duration in minutes"
               />
             </div>
 
@@ -296,7 +285,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                 onChange={setFocusTopics}
                 suggestions={suggestions}
                 max={MAX_FOCUS_TOPICS}
-                placeholder="Pick a topic or type your own, then press Enter…"
+                placeholder="Pick a topic or type one, then Enter"
               />
             </div>
 
@@ -307,7 +296,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                   type="checkbox"
                   checked={webResearch}
                   onChange={(e) => setWebResearch(e.target.checked)}
-                  className="mt-1 size-4 accent-[var(--color-primary)]"
+                  className="mt-0.5 size-5 shrink-0 accent-[var(--color-primary)]"
                 />
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-medium text-ink">
@@ -361,7 +350,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                 placeholder="e.g. Make this more applied; include at least two numerical problems."
                 maxLength={MAX_CHARS}
                 rows={4}
-                className="w-full min-h-[96px] rounded-[var(--radius-control)] border border-rule-2 bg-sunken px-3.5 py-3 text-[14px] leading-relaxed text-ink outline-none transition-all placeholder:text-ink-3 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="w-full min-h-[96px] rounded-[var(--radius-control)] border border-rule-2 bg-sunken px-3.5 py-3 text-[16px] leading-relaxed narrow:text-[14px] text-ink outline-none transition-all placeholder:text-ink-3 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               <div className="mt-1.5 text-[12px] leading-relaxed text-ink-3">
                 Optional. The AI treats this as a soft hint and may not follow
@@ -398,16 +387,16 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
             />
           </Bento>
 
-          {/* Actions bar */}
-          <Bento className="flex-row flex-wrap items-center justify-between gap-3 !py-4">
+          {/* Actions bar: sticky, so "Create test" is always in reach on a long form. */}
+          <div className="no-print sticky bottom-3 z-10 flex items-center justify-between gap-3 rounded-[var(--radius-bento)] border border-rule bg-surface/95 px-4 py-3 shadow-[var(--shadow-raised)] backdrop-blur-sm max-narrow:px-3 max-narrow:py-2.5">
             <Button
               onClick={onCancel}
               disabled={busy} variant="ghost"
             >
               Cancel
             </Button>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-mono text-[12.5px] tabular-nums text-ink-3">
+            <div className="flex flex-wrap items-center gap-3 max-narrow:flex-1 max-narrow:justify-end">
+              <span className="text-[12.5px] tabular-nums text-ink-3 max-narrow:hidden">
                 {totalQuestions} questions · {totalMarks} marks · {duration} min
               </span>
               <Button
@@ -427,7 +416,7 @@ export const DraftRulesScreen = ({ onCancel, onCreate, scope = "", subjectId, ba
                 )}
               </Button>
             </div>
-          </Bento>
+          </div>
         </div>
       </div>
     </div>

@@ -51,7 +51,8 @@ export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const axisWidth = boxWidth < 440 ? 104 : 144;
+  // 116 px fits a 15-letter word ("Thermodynamics") per line at 12.5 px.
+  const axisWidth = boxWidth < 440 ? 116 : 144;
 
   const data = [...rows].sort((a, b) => a.accuracy - b.accuracy).map((r) => ({
     topic: r.name, accuracy: r.accuracy, affected: r.affected || Math.round((100 - r.accuracy) * 0.4), x: r.accuracy, y: r.name,
@@ -67,9 +68,9 @@ export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
   return (
     <div ref={containerRef} className="relative w-full" style={{ height: Math.max(220, data.length * 40 + 36) }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 8, right: 24, bottom: 4, left: 4 }}>
+        <ScatterChart margin={{ top: 8, right: 28, bottom: 4, left: 4 }}>
           <CartesianGrid horizontal={false} stroke="var(--color-rule)" />
-          <XAxis type="number" dataKey="x" domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v) => `${v}%`}
+          <XAxis type="number" dataKey="x" domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} interval={0} tickFormatter={(v) => `${v}%`}
                  axisLine={{ stroke: "var(--color-rule-2)" }} tickLine={false}
                  tick={{ fill: "var(--color-ink-3)", fontSize: 12, fontFamily: "var(--font-sans)" }} />
           <YAxis type="category" dataKey="y" width={axisWidth} axisLine={false} tickLine={false} interval={0}
@@ -98,10 +99,13 @@ export const InteractiveDotPlot = ({ rows, onDrillDown }) => {
             <span className="text-ink-3">Students affected</span>
             <span className="font-mono font-semibold tabular-nums text-ink">{hover.d.affected}</span>
           </div>
-          <button type="button" className="mt-2.5 w-full rounded-[var(--radius-control)] border border-primary bg-primary-soft py-1.5 text-[12.5px] font-semibold text-primary transition-colors hover:bg-primary-dim"
-                  onClick={() => { setHover(null); onDrillDown?.(hover.d); }}>
-            View students →
-          </button>
+          {/* Only when the page has somewhere to go (no dead button on the analytics page itself). */}
+          {onDrillDown && (
+            <button type="button" className="mt-2.5 w-full rounded-[var(--radius-control)] border border-primary bg-primary-soft py-1.5 text-[12.5px] font-semibold text-primary transition-colors hover:bg-primary-dim focus-visible:ring-2 focus-visible:ring-ring/40"
+              onClick={() => { setHover(null); onDrillDown(hover.d); }}>
+              See it in analytics
+            </button>
+          )}
         </div>
       )}
     </div>

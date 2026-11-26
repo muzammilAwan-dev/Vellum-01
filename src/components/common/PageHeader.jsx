@@ -12,7 +12,7 @@ export const PageHeader = ({ crumbs = [], title, titleNote, intro, actions, chil
           {crumbs.map((c, i) => {
             const last = i === crumbs.length - 1;
             return (
-              <li key={c.label + i} className="flex min-w-0 items-center gap-1">
+              <li key={i} className="flex min-w-0 items-center gap-1">
                 {i > 0 && <span aria-hidden="true" className="px-0.5 text-ink-4 dark:text-ink-3">/</span>}
                 {c.to && !last ? (
                   <Link to={c.to} className="inline-flex min-h-6 items-center rounded-sm px-0.5 transition-colors hover:text-ink hover:underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring/40">
@@ -35,7 +35,8 @@ export const PageHeader = ({ crumbs = [], title, titleNote, intro, actions, chil
         </h1>
         {intro && <p className="mt-2 text-[14px] leading-relaxed text-ink-2">{intro}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {/* Phones: actions take the full width and share it, so none is ever cut off at the edge. */}
+      {actions && <div className="flex flex-wrap items-center gap-2 max-narrow:w-full max-narrow:[&>*:not([aria-haspopup])]:flex-auto">{actions}</div>}
     </div>
     {children}
   </header>

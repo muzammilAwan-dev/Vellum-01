@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "@/context/useToast";
 import { cn } from "@/lib/cn";
 import { isChoice, typeLabel } from "@/lib/questions";
@@ -26,18 +27,16 @@ export const TestPreview = ({ title = "Test preview", forStudent, questions = []
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-primary/30 bg-bg/85 px-4 py-3 backdrop-blur-xl tablet:px-8">
-        <div className="flex min-w-0 items-center gap-3.5">
-          <span className="font-display text-[14.5px] font-semibold tracking-[-0.01em] text-ink">
+        {/* The test name is the page's h1; the "preview" note sits under it on phones, beside it on wide screens. */}
+        <div className="flex min-w-0 flex-col gap-0.5 narrow:flex-row narrow:items-center narrow:gap-3.5">
+          <h1 className="min-w-0 truncate font-display text-[14.5px] font-semibold tracking-[-0.01em] text-ink">
             {title}
-          </span>
-          <span title={forStudent ? `Preview · ${forStudent}` : undefined} className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
-            {forStudent ? `Preview · ${forStudent}` : "Preview mode"}
+          </h1>
+          <span className="w-fit max-w-full truncate whitespace-nowrap rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
+            {forStudent ? `Student view · ${forStudent}` : "Student view"}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden font-mono text-[12px] text-ink-3 narrow:inline">
-            This is what students see
-          </span>
+        <div className="flex shrink-0 items-center gap-3">
           <Button
             onClick={onExit} variant="outline" size="sm"
           >
@@ -71,9 +70,9 @@ export const TestPreview = ({ title = "Test preview", forStudent, questions = []
             <span>{q.marks} marks</span>
           </div>
 
-          <div className="mb-9 font-display text-[26px] leading-snug tracking-[-0.015em] text-ink">
+          <h2 className="mb-9 whitespace-pre-wrap font-display text-[22px] font-normal leading-snug tracking-[-0.015em] text-ink narrow:text-[26px]">
             {q.text}
-          </div>
+          </h2>
 
           {!isText && q.options && (
             <div className="flex flex-col gap-2">
@@ -98,16 +97,14 @@ export const TestPreview = ({ title = "Test preview", forStudent, questions = []
             </div>
           )}
 
-          <div className="mt-10 flex items-center justify-between">
+          <p className="mt-6 text-center text-[12.5px] text-ink-3">This is what students see. Answers can't be chosen in the preview.</p>
+          <div className="mt-4 flex items-center justify-between gap-3">
             <Button
               disabled={qIndex === 0}
               onClick={() => setQIndex(qIndex - 1)} variant="ghost"
             >
-              ← Previous
+              <ArrowLeft size={14} aria-hidden="true" /> Previous
             </Button>
-            <span className="font-mono text-[12px] text-ink-3">
-              Interactive preview disabled
-            </span>
             <Button
               onClick={() => {
                 if (qIndex === questions.length - 1) {
@@ -116,9 +113,7 @@ export const TestPreview = ({ title = "Test preview", forStudent, questions = []
                 } else setQIndex(qIndex + 1);
               }}
             >
-              {qIndex === questions.length - 1
-                ? "Finish preview"
-                : "Next →"}
+              {qIndex === questions.length - 1 ? "Finish preview" : <>Next <ArrowRight size={14} aria-hidden="true" /></>}
             </Button>
           </div>
         </div>

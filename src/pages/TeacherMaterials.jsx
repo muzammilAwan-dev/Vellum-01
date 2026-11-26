@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Upload, Sparkles, FileText } from "lucide-react";
 import { useNavigate } from "react-router";
 import { ACCEPTED_TYPES, MAX_FILE_BYTES, MAX_ITEMS_PER_UPLOAD, guessRoute, uploadMaterials } from "@/api/materials";
-import { Bento, Conn, SectionHeader, Scope } from "@/components/common";
+import { Bento, PageHeader, SectionHeader, Scope } from "@/components/common";
 import { MaterialsLibrary } from "@/components/teacher-materials/MaterialsLibrary";
 import { OutlineEditor } from "@/components/teacher-materials/OutlineEditor";
 import { QueuedItem } from "@/components/teacher-materials/QueuedItem";
@@ -141,22 +141,25 @@ const TeacherMaterials = () => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Materials
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Materials" }]}
+        title="Materials"
+        intro="Feed it anything: paste text, drop a typed PDF, or photograph a whiteboard. Tag each item as a course outline or a past paper (add its year if you know it); each is read the way that suits it."
+      />
 
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Feed it <span className="text-ink-3">anything</span>
-          </h1>
-          <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            Paste text, drop a typed PDF, or photograph a whiteboard. Tag each item
-            as a course outline or a past paper (add its year if you know it); each is read the way that suits it.
-          </p>
-        </div>
-        <Conn state={phase === "processing" ? "polling" : "live"} />
-      </div>
+      {/* How it works, in three steps: the empty page now says what to do first. */}
+      <ol className="mb-6 grid gap-2 text-[13px] text-ink-2 narrow:grid-cols-3" aria-label="How materials work">
+        {[
+          ["Add", "Upload files or paste text."],
+          ["Tag", "Mark each as a course outline or a past paper."],
+          ["Read", "Topics and recurring questions appear, ready for a test."],
+        ].map(([k, v], i) => (
+          <li key={k} className="flex items-start gap-2.5 rounded-[var(--radius-control)] border border-rule bg-surface px-3 py-2.5">
+            <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-dim text-[12px] font-bold text-primary">{i + 1}</span>
+            <span><span className="font-semibold text-ink">{k}.</span> {v}</span>
+          </li>
+        ))}
+      </ol>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="min-w-0 flex flex-col gap-4">
@@ -195,9 +198,9 @@ const TeacherMaterials = () => {
             <div className="relative z-10 mb-5 grid size-16 place-items-center rounded-2xl bg-primary-dim text-primary shadow-[var(--shadow-primary)] transition-transform duration-500 group-hover:scale-105">
               <Upload size={28} />
             </div>
-            <h3 className="relative z-10 mb-2 font-display text-[20px] font-semibold tracking-[-0.015em] text-ink">
+            <span className="relative z-10 mb-2 font-display text-[20px] font-semibold tracking-[-0.015em] text-ink">
               Drop files or click to browse
-            </h3>
+            </span>
             <p className="relative z-10 text-[13.5px] text-ink-2">
               PDF · JPG · PNG · HEIC · plain text — mixed in one submission
             </p>
@@ -280,8 +283,8 @@ const TeacherMaterials = () => {
             >
               <Sparkles size={13} />
               {pending.some((it) => it.state === "failed") && !pending.some((it) => it.state === "queued")
-                ? `Retry ${pending.length} failed ${pending.length === 1 ? "item" : "items"} →`
-                : `Read ${pending.length} ${pending.length === 1 ? "item" : "items"} →`}
+                ? `Retry ${pending.length} failed ${pending.length === 1 ? "item" : "items"}`
+                : `Read ${pending.length} ${pending.length === 1 ? "item" : "items"}`}
             </Button>
           )}
         </div>
@@ -303,7 +306,7 @@ const TeacherMaterials = () => {
           )}
 
           {phase === "processing" && (
-            <div className="flex flex-col items-center gap-3 py-6 text-center">
+            <div role="status" className="flex flex-col items-center gap-3 py-6 text-center">
               <span className="size-6 animate-spin-slow rounded-full border-2 border-primary border-t-transparent" />
               <p className="text-[13px] leading-relaxed text-ink-3">
                 Reading materials and grouping questions by topic…
@@ -351,7 +354,7 @@ const TeacherMaterials = () => {
                 <Button
                   onClick={() => navigate("/teacher/clusters")}
                 >
-                  Review recurring questions →
+                  Review recurring questions
                 </Button>
               </div>
             </>

@@ -12,7 +12,9 @@ function buildRoleItems(role, navigate) {
   if (role === "teacher") {
     return [
       nav("home", "Overview", "Home"),
+      nav("subjects", "Subjects", "Manage"),
       nav("materials", "Materials", "Upload"),
+      nav("clusters", "Recurring questions", "Past papers"),
       nav("bank", "Question bank", "Browse"),
       nav("drafts", "Tests", "Manage"),
       nav("review", "Grade review", "Pending"),
@@ -21,6 +23,9 @@ function buildRoleItems(role, navigate) {
       nav("audit", "Grading history", "My marks"),
       nav("lms", "Courses", "LMS"),
       nav("chat", "Discussion", "Chat"),
+      nav("profile", "Profile", "Your account"),
+      { id: "act-new-test", section: "Actions", label: "Make a new test", hint: "Tests", action: () => navigate("/teacher/drafts/new") },
+      { id: "act-send-reports", section: "Actions", label: "Send parent reports", hint: "Analytics", action: () => navigate("/teacher/analytics") },
     ];
   }
   if (role === "student") {

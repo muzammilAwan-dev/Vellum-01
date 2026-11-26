@@ -1,8 +1,8 @@
 import { useState, useMemo, Fragment } from "react";
 import { typeLabel } from "@/lib/questions";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search as SearchIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Plus } from "lucide-react";
 import { deleteBankQuestion } from "@/api/bank";
-import { Conn, EmptyState, MetricCard, PageError, PageLoading, TableShell, Td, Th, Scope } from "@/components/common";
+import { EmptyState, PageError, PageHeader, PageLoading, RowToggle, Scope, SearchField, TableShell, Td, Th } from "@/components/common";
 import { BankQuestionModal } from "./BankQuestionModal";
 import { useApp } from "@/context/useApp";
 import { useToast } from "@/context/useToast";
@@ -143,66 +143,23 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Question bank
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Question bank" }]}
+        title="Question bank"
+        intro="Every question you've approved, from past papers and from drafts, tagged and ready to reuse. Publishing a test adds its new questions here."
+        actions={<Button onClick={() => setEditor({})}><Plus size={14} aria-hidden="true" /> Add a question</Button>}
+      />
 
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Question <span className="text-ink-3">bank</span>
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            Every question you've approved — from past papers and from drafts —
-            tagged and ready to reuse. Publishing a test adds its new questions here.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={() => setEditor({})}>Add a question</Button>
-          <Conn state="live" />
-        </div>
-      </div>
-
-      <div className="bento mb-10">
-        <MetricCard
-          label="Total questions"
-          value={allQuestions.length}
-          delta="All sources"
-          deltaTone="success"
-        />
-        <MetricCard
-          label="From past papers"
-          value={allQuestions.filter((q) => q.source === "past-paper").length}
-          delta="Directly reused"
-          deltaTone="success"
-        />
-        <MetricCard
-          label="Generated"
-          value={allQuestions.filter((q) => q.source === "generated").length}
-          delta={`${allQuestions.filter((q) => q.source === "manual").length} added by you`}
-          deltaTone="success"
-        />
-        <MetricCard
-          variant="featured"
-          label="Most reused"
-          value={allQuestions.length ? Math.max(...allQuestions.map((q) => q.used)) : 0}
-          unit="×"
-          delta="High-signal question"
-          deltaTone="success"
-        />
-      </div>
+      {/* One summary line (the filters below do the slicing), not four tiles. */}
+      <p className="mb-5 text-[13px] text-ink-2">
+        <span className="font-medium text-ink">{allQuestions.length} {allQuestions.length === 1 ? "question" : "questions"}</span>
+        {" · "}{allQuestions.filter((q) => q.source === "past-paper").length} from past papers
+        {" · "}{allQuestions.filter((q) => q.source === "generated").length} generated
+        {" · "}{allQuestions.filter((q) => q.source === "manual").length} added by you
+      </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2.5 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[360px]">
-          <SearchIcon size={14} className="shrink-0 text-ink-3" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search question text or topic…"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-          />
-        </label>
+        <SearchField label="Search the bank" value={search} onChange={setSearch} placeholder="Search question text or topic…" className="w-full narrow:w-[320px]" />
         <Select
           aria-label="Filter by topic"
           value={topicFilter}
@@ -217,7 +174,7 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
           options={SOURCE_OPTIONS}
           className={FILTER_SELECT}
         />
-        <div className="ml-auto font-mono text-[12px] tabular-nums text-ink-3">
+        <div className="ml-auto text-[12.5px] tabular-nums text-ink-3" aria-live="polite">
           {filtered.length} shown
         </div>
       </div>
@@ -238,7 +195,7 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
         </div>
       )}
 
-      <TableShell>
+      <TableShell stack label="Questions in the bank">
         <thead>
           <tr className="border-b border-rule-2">
             <Th className="w-9">
@@ -249,30 +206,30 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
                 }
                 onChange={selectAll}
                 aria-label="Select all"
-                className="size-4 appearance-none rounded-sm border border-rule-2 bg-bg transition-colors checked:border-primary checked:bg-primary"
+                className="size-5 accent-[var(--color-primary)]"
               />
             </Th>
             <Th>
               <button
                 onClick={() => toggleSort("text")}
-                className="inline-flex items-center"
+                className="inline-flex min-h-8 items-center rounded-sm hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 Question {sortArrow("text")}
               </button>
             </Th>
-            <Th>
+            <Th hideMid>
               <button
                 onClick={() => toggleSort("topic")}
-                className="inline-flex items-center"
+                className="inline-flex min-h-8 items-center rounded-sm hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 Topic {sortArrow("topic")}
               </button>
             </Th>
-            <Th>Source</Th>
+            <Th hideMid>Source</Th>
             <Th className="text-right">
               <button
                 onClick={() => toggleSort("marks")}
-                className="inline-flex items-center"
+                className="inline-flex min-h-8 items-center rounded-sm hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 Marks {sortArrow("marks")}
               </button>
@@ -280,7 +237,7 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
             <Th className="text-right">
               <button
                 onClick={() => toggleSort("used")}
-                className="inline-flex items-center"
+                className="inline-flex min-h-8 items-center rounded-sm hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 Used {sortArrow("used")}
               </button>
@@ -327,19 +284,21 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
                       type="checkbox"
                       checked={isSelected}
                       onChange={(e) => toggleSelect(q.id, e)}
-                      aria-label={`Select question ${q.id}`}
-                      className="size-4 appearance-none rounded-sm border border-rule-2 bg-bg transition-colors checked:border-primary checked:bg-primary"
+                      aria-label={`Select: ${q.text.slice(0, 60)}`}
+                      className="size-5 accent-[var(--color-primary)]"
                     />
                   </Td>
-                  <Td className="text-[13.5px] font-medium text-ink">
-                    {q.text.length > 90 ? q.text.slice(0, 90) + "…" : q.text}
+                  <Td className="min-w-[260px] text-[13.5px] max-narrow:min-w-0">
+                    <RowToggle open={isOpen} onToggle={() => setExpanded(isOpen ? null : q.id)} controls={`bank-${q.id}`} className="font-medium">
+                      {q.text.length > 90 ? q.text.slice(0, 90).trimEnd() + "…" : q.text}
+                    </RowToggle>
                   </Td>
-                  <Td>
+                  <Td label="Topic" hideMid>
                     <span title={q.topic} className="inline-block max-w-[16rem] truncate rounded-full align-middle border border-primary/25 bg-primary-dim px-2 py-0.5 text-[12px] font-medium text-primary">
                       {q.topic}
                     </span>
                   </Td>
-                  <Td>
+                  <Td label="Source" hideMid hidePhone>
                     <span
                       className={cn(
                         "whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium",
@@ -349,10 +308,10 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
                       {(SOURCE[q.source] ?? SOURCE.generated).label}
                     </span>
                   </Td>
-                  <Td className="text-right font-mono tabular-nums">
+                  <Td label="Marks" className="text-right font-mono tabular-nums">
                     {q.marks}
                   </Td>
-                  <Td className="text-right font-mono tabular-nums">
+                  <Td label="Used" hidePhone className="text-right font-mono tabular-nums">
                     {q.used}×
                   </Td>
                 </tr>
@@ -360,7 +319,8 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
                   <tr>
                     <td
                       colSpan={6}
-                      className="border-b border-rule bg-surface p-6 tablet:p-8"
+                      id={`bank-${q.id}`}
+                      className="border-b border-rule bg-surface p-4 narrow:p-6 tablet:p-8"
                     >
                       <div className="mx-auto max-w-[900px]">
                         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -376,7 +336,7 @@ export const QuestionBank = ({ subjectId, onAddToDraft }) => {
                               <span>{q.marks} marks</span>
                             </div>
                           </div>
-                          <div className="flex shrink-0 gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button onClick={() => setEditor({ question: q })} variant="outline" size="sm">
                               Edit
                             </Button>

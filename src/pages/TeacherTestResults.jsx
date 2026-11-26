@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ChevronDown, ChevronRight, ClipboardCheck, Flag, Percent, Users } from "lucide-react";
+import { ClipboardCheck, Flag, Percent, Users } from "lucide-react";
 import {
   Bento,
   Chip,
@@ -8,7 +8,9 @@ import {
   EmptyState,
   MetricCard,
   PageError,
+  PageHeader,
   PageLoading,
+  RowToggle,
   SectionHeader,
   StatusDot,
   TableShell,
@@ -159,28 +161,28 @@ const TeacherTestResults = () => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 text-[13px] font-medium text-ink-3">
-        {test.subject} · {test.cls} / Results
-      </div>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">
-            {test.title}
-          </h1>
-          <p className="mt-2 text-[14px] text-ink-2">
-            {test.status === "live" ? "Still open — numbers update as students finish." : "This test has ended."} ·{" "}
-            {test.questionCount} questions · {test.totalMarks} marks
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {test.status === "live" && (
-            <Button variant="outline" onClick={() => navigate(`/teacher/live?test=${test.id}`)}>
-              Live view
+      <PageHeader
+        crumbs={[{ label: `${test.subject} · ${test.cls}` }, { label: "Tests", to: "/teacher/drafts" }, { label: "Results" }]}
+        title={test.title}
+        titleNote={test.status === "live" ? <StatusDot tone="live">Live</StatusDot> : null}
+        intro={[
+          test.status === "live" ? "Still open: numbers update as students finish" : "This test has ended",
+          `${test.questionCount} questions`,
+          `${test.totalMarks} marks`,
+        ].join(" · ") + "."}
+        actions={
+          <>
+            {test.status === "live" && (
+              <Button variant="outline" onClick={() => navigate(`/teacher/live?test=${test.id}`)}>
+                Live control
+              </Button>
+            )}
+            <Button onClick={() => navigate("/teacher/review")}>
+              {summary.awaitingMarks > 0 ? `Review ${summary.awaitingMarks} ${summary.awaitingMarks === 1 ? "mark" : "marks"}` : "Grade review"}
             </Button>
-          )}
-          <Button onClick={() => navigate("/teacher/review")}>Review marks →</Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="bento mb-8">
         <MetricCard
@@ -225,7 +227,7 @@ const TeacherTestResults = () => {
       </div>
 
       <section>
-        <SectionHeader label="Students" meta="select a row for the event timeline" />
+        <SectionHeader label="Students" meta="open a student for their answers and event timeline" />
         <div className="mb-3">
           <ChipRow>
             {RESULT_FILTERS.map((f) => (
@@ -235,7 +237,7 @@ const TeacherTestResults = () => {
             ))}
           </ChipRow>
         </div>
-        <TableShell>
+        <TableShell stack label="Students and their results">
           <thead>
             <tr className="border-b border-rule-2">
               <Th>Student</Th>
@@ -265,38 +267,36 @@ const TeacherTestResults = () => {
                   <tr className="border-b border-rule last:border-b-0 hover:bg-raised/50">
                     <Td className="text-[13.5px] font-medium text-ink">
                       {expandable ? (
-                        <button
-                          type="button"
-                          onClick={() => toggle(student.id)}
-                          aria-expanded={expanded}
-                          className="inline-flex items-center gap-1.5 text-left"
-                        >
-                          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <RowToggle open={expanded} onToggle={() => toggle(student.id)} controls={`result-${student.id}`}>
                           {student.name}
-                        </button>
+                        </RowToggle>
                       ) : (
-                        <span className="pl-[20px]">{student.name}</span>
+                        // Same 20 px icon slot as the toggle, so every name lines up.
+                        <span className="inline-flex min-h-8 items-center gap-1.5">
+                          <span aria-hidden="true" className="w-3.5 shrink-0" />
+                          {student.name}
+                        </span>
                       )}
                     </Td>
-                    <Td>
+                    <Td label="Status">
                       <StatusDot tone={meta.tone}>{meta.label}</StatusDot>
                     </Td>
-                    <Td className="text-right font-mono tabular-nums">
+                    <Td label="Marks" hidePhone={!attempt?.marks} className="text-right font-mono tabular-nums">
                       {attempt?.marks ? (
-                        <>
+                        <span>
                           <span className="text-ink">
                             {attempt.marks.earned}/{attempt.marks.max}
                           </span>
                           {pct != null && <span className="ml-2 text-ink-3">{pct}%</span>}
-                        </>
+                        </span>
                       ) : (
                         "—"
                       )}
                     </Td>
-                    <Td className="text-right font-mono tabular-nums">
+                    <Td label="Time taken" hidePhone={!attempt?.submittedAt} className="text-right font-mono tabular-nums">
                       {attempt?.submittedAt ? clock(attempt.submittedAt - attempt.startedAt) : "—"}
                     </Td>
-                    <Td>
+                    <Td label="Flags" hidePhone={!flags.count}>
                       {flags.count ? (
                         <FlagChip severity={flags.top}>
                           {flags.count} · {SEVERITY_LABEL[flags.top].toLowerCase()}
@@ -308,7 +308,7 @@ const TeacherTestResults = () => {
                   </tr>
                   {expanded && attempt && (
                     <tr className="border-b border-rule bg-raised/30 last:border-b-0">
-                      <td colSpan={5} className="p-0">
+                      <td colSpan={5} className="p-0" id={`result-${student.id}`}>
                         <Detail attempt={attempt} />
                       </td>
                     </tr>

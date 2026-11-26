@@ -91,7 +91,7 @@ export const ShareDialog = ({ open, onClose, classId, subjectId, studentId = nul
           <div role="radiogroup" aria-label="Who" className="space-y-1">
             {audiences.map((a) => (
               <label key={a.id} className="flex min-h-9 items-center gap-2 text-[14px] text-ink pointer-coarse:min-h-11">
-                <input type="radio" name="share-audience" checked={audience === a.id} disabled={a.disabled} onChange={() => setAudience(a.id)} className="size-4 accent-[var(--color-primary)]" />
+                <input type="radio" name="share-audience" checked={audience === a.id} disabled={a.disabled} onChange={() => setAudience(a.id)} className="size-5 shrink-0 accent-[var(--color-primary)]" />
                 <span className={a.disabled ? "text-ink-3" : ""}>{a.label}</span>
               </label>
             ))}

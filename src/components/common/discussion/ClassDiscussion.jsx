@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, MessageCircle, Sparkles, Check, Pin, Search as SearchIcon, Trash2, X } from "lucide-react";
+import { Plus, Sparkles, Check, Pin, Trash2, X } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
 import { Bento } from "@/components/common/Bento";
 import { Chip, ChipRow } from "@/components/common/Chips";
@@ -7,7 +7,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Field } from "@/components/common/FormField";
 import { inputClass } from "@/components/common/inputClass";
-import { MetricCard } from "@/components/common/MetricCard";
+import { PageHeader } from "@/components/common/PageHeader";
+import { SearchField } from "@/components/common/SearchField";
 import { ModalShell } from "@/components/common/ModalShell";
 import { PageError, PageLoading } from "@/components/common/QueryState";
 import { addReply as postReply, createThread as postThread, deleteReply as removeReply, deleteThread, updateThread } from "@/api/threads";
@@ -19,11 +20,13 @@ import { canResolve, sortThreads, tagsFor, timeAgo, validateReply, validateThrea
 import { Button } from "@/components/ui/button";
 import { Scope } from "@/components/common";
 
+// Tags sit on a solid surface (never a tint over a tint), so their text keeps 4.5:1 on pinned
+// (tinted) rows too; the colour is in the text and the border.
 const TAG_TONE = {
-  Question: "bg-warning-dim text-warning border-warning/25",
-  Discussion: "bg-primary-dim text-primary border-primary/25",
-  Resource: "bg-success-dim text-success border-success/25",
-  Announcement: "bg-danger-dim text-danger border-danger/25",
+  Question: "bg-surface text-warning border-warning/40 dark:bg-raised",
+  Discussion: "bg-surface text-primary border-primary/40 dark:bg-raised",
+  Resource: "bg-surface text-success border-success/40 dark:bg-raised",
+  Announcement: "bg-surface text-danger border-danger/40 dark:bg-raised",
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -127,80 +130,26 @@ export const ClassDiscussion = ({ role }) => {
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Class
-        discussion
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Discussion" }]}
+        title="Class discussion"
+        intro="Ask questions, share resources, discuss the week's topic. Teachers moderate. Be kind: everything here is logged."
+        actions={
+          <Button onClick={() => setNewOpen(true)}>
+            <Plus size={14} aria-hidden="true" /> New thread
+          </Button>
+        }
+      />
 
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Class <span className="text-ink-3">discussion</span>
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            Ask questions, share resources, discuss the week's topic. Teachers
-            moderate. Be kind — everything here is logged.
-          </p>
-        </div>
-        <Button
-          onClick={() => setNewOpen(true)}
-        >
-          <Plus size={14} /> New thread
-        </Button>
-      </div>
-
-      <div className="bento mb-8">
-        <MetricCard
-          icon={MessageCircle}
-          iconTone="primary"
-          label="Active threads"
-          value={threads.filter((t) => !t.resolved).length}
-          delta="Awaiting replies"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Sparkles}
-          iconTone="neutral"
-          label="Replies"
-          value={threads.reduce((s, t) => s + t.replies.length, 0)}
-          delta="Across all threads"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Check}
-          iconTone="success"
-          label="Resolved"
-          value={threads.filter((t) => t.resolved).length}
-          delta="Closed threads"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Pin}
-          iconTone="warning"
-          label="Pinned"
-          value={threads.filter((t) => t.pinned).length}
-          delta="Teacher-curated"
-          deltaTone="success"
-        />
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2.5 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[360px]">
-          <SearchIcon size={14} className="shrink-0 text-ink-3" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search threads…"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-          />
-        </label>
+      {/* The counts live on the filters (one place per number), not in a row of tiles. */}
+      <div className="mb-4 flex flex-col gap-3 tablet:flex-row tablet:items-center">
+        <SearchField label="Search threads" value={search} onChange={setSearch} placeholder="Search threads…" className="tablet:w-[320px]" />
         <ChipRow>
           {[
-            { k: "all", l: "All" },
-            { k: "unresolved", l: "Unresolved" },
+            { k: "all", l: "All", n: threads.length },
+            { k: "unresolved", l: "Unresolved", n: threads.filter((t) => !t.resolved).length },
             { k: "mine", l: "My posts" },
-            { k: "pinned", l: "Pinned" },
+            { k: "pinned", l: "Pinned", n: threads.filter((t) => t.pinned).length },
           ].map((f) => (
             <Chip
               key={f.k}
@@ -208,6 +157,7 @@ export const ClassDiscussion = ({ role }) => {
               onClick={() => setFilter(f.k)}
             >
               {f.l}
+              {f.n != null && <span className="tabular-nums">{f.n}</span>}
             </Chip>
           ))}
         </ChipRow>
@@ -248,20 +198,21 @@ export const ClassDiscussion = ({ role }) => {
               variant={t.pinned ? "featured" : "default"}
               className={cn(
                 "!p-0 overflow-hidden transition-all duration-300",
-                t.resolved && "opacity-70",
               )}
             >
               <button
+                type="button"
                 onClick={() => setExpanded(isOpen ? null : t.id)}
-                className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-raised/40"
+                aria-expanded={isOpen}
+                className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-4 text-left transition-colors hover:bg-raised/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 max-narrow:px-4"
               >
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="flex min-w-0 flex-1 basis-[240px] items-start gap-2.5">
                   {t.pinned && (
-                    <Pin size={12} className="shrink-0 text-primary" />
+                    <Pin size={12} className="mt-1.5 shrink-0 text-primary" aria-label="Pinned" role="img" />
                   )}
                   <span
                     className={cn(
-                      "shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-semibold",
+                      "mt-0.5 shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-semibold",
                       TAG_TONE[t.tag] || "bg-raised text-ink-3 border-rule-2",
                     )}
                   >
@@ -269,8 +220,8 @@ export const ClassDiscussion = ({ role }) => {
                   </span>
                   <span
                     className={cn(
-                      "min-w-0 truncate text-[14.5px] font-semibold text-ink",
-                      t.resolved && "line-through decoration-ink-4",
+                      "min-w-0 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]",
+                      t.resolved && "text-ink-2 line-through decoration-ink-4",
                     )}
                   >
                     {t.title}

@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import { EmptyState, StatusDot, TableShell, Td, Th } from "@/components/common";
 import { cn } from "@/lib/cn";
 
-const STATUS_TONE = { draft: "muted", scheduled: "primary", live: "danger", completed: "success" };
+const STATUS_TONE = { draft: "muted", scheduled: "primary", live: "live", completed: "success" };
 const STATUS_LABEL = { draft: "Draft", scheduled: "Scheduled", live: "Live now", completed: "Completed" };
 
 // Count cell: muted zero, emphasised when the number deserves a look.

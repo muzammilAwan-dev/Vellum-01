@@ -69,6 +69,7 @@ const PaletteBody = ({ open, onClose, items, onSelect }) => {
         ref={ref}
         role="dialog"
         aria-modal="true"
+        aria-label="Search pages and actions"
         onClick={(e) => e.stopPropagation()}
         className="glass-strong flex max-h-[70dvh] w-full max-w-[560px] animate-cmd-in flex-col overflow-hidden rounded-[var(--radius-modal)] shadow-[var(--shadow-modal)]"
       >

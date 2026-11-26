@@ -1,6 +1,5 @@
 import { useState, Fragment } from "react";
-import { CheckCircle2, FileEdit, Flag } from "lucide-react";
-import { EmptyState, MetricCard, TableShell, Td, Th } from "@/components/common";
+import { EmptyState, RowToggle, TableShell, Td, Th } from "@/components/common";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 
@@ -27,7 +26,11 @@ export const ManualGradingQueue = ({ items, onSave }) => {
     setBusy(true);
     try {
       await onSave(g, Number(raw), remarks[g.id] ?? g.feedback ?? "", final);
-      if (final) setExpanded(null);
+      // The next answer still waiting opens by itself.
+      if (final) {
+        const i = queue.findIndex((r) => r.id === g.id);
+        setExpanded(queue[i + 1]?.id ?? null);
+      }
     } finally {
       setBusy(false);
     }
@@ -35,40 +38,12 @@ export const ManualGradingQueue = ({ items, onSave }) => {
 
   return (
     <div>
-      <div className="bento mb-10">
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="warning"
-          label="In queue"
-          value={queue.length}
-          delta="Awaiting your mark"
-          deltaTone="warning"
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="success"
-          label="Marked"
-          value={doneCount}
-          delta="Done by you"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={FileEdit}
-          iconTone="primary"
-          label="Written answers"
-          value={items.length}
-          delta={`Across ${tests} ${tests === 1 ? "test" : "tests"}`}
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Flag}
-          iconTone={flagged > 0 ? "danger" : "neutral"}
-          label="Flagged"
-          value={flagged}
-          delta="Tab switches detected"
-          deltaTone={flagged > 0 ? "danger" : "success"}
-        />
-      </div>
+      {/* One summary line instead of four tiles. */}
+      <p className="mb-5 text-[13px] text-ink-2">
+        <span className="font-medium text-ink">{queue.length} waiting</span> · {doneCount} marked · {items.length} written{" "}
+        {items.length === 1 ? "answer" : "answers"} across {tests} {tests === 1 ? "test" : "tests"}
+        {flagged > 0 && <span className="text-warning"> · {flagged} with flagged events</span>}
+      </p>
 
       <section className="mb-8">
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3 border-b border-rule-2 pb-3.5">
@@ -88,15 +63,14 @@ export const ManualGradingQueue = ({ items, onSave }) => {
             body="Every written answer has been graded. Nothing in the manual queue."
           />
         ) : (
-          <TableShell>
+          <TableShell stack label="Answers to mark">
             <thead>
               <tr className="border-b border-rule-2">
-                <Th>Student</Th>
-                <Th>Roll no</Th>
-                <Th>Test</Th>
+                <Th>Student and question</Th>
+                <Th hideMid>Roll no</Th>
+                <Th hideMid>Test</Th>
                 <Th className="text-right">Max marks</Th>
                 <Th className="text-right">Flags</Th>
-                <Th className="w-12"></Th>
               </tr>
             </thead>
             <tbody>
@@ -112,15 +86,20 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                         isOpen && "bg-raised/60",
                       )}
                     >
-                      <Td className="text-[13.5px] font-medium text-ink">
-                        {g.student}
+                      <Td className="text-[13.5px]">
+                        <RowToggle open={isOpen} onToggle={() => setExpanded(isOpen ? null : g.id)} controls={`manual-${g.id}`}>
+                          {g.student}
+                        </RowToggle>
+                        <div className="ml-5 mt-0.5 text-[12.5px] leading-snug text-ink-3">
+                          {(g.question ?? "").length > 70 ? g.question.slice(0, 70).trimEnd() + "…" : g.question}
+                        </div>
                       </Td>
-                      <Td className="font-mono text-[12px]">{g.roll}</Td>
-                      <Td>{g.test}</Td>
-                      <Td className="text-right font-mono tabular-nums">
+                      <Td label="Roll no" hideMid className="whitespace-nowrap font-mono text-[12px]">{g.roll}</Td>
+                      <Td label="Test" hideMid>{g.test}</Td>
+                      <Td label="Max marks" className="text-right font-mono tabular-nums">
                         {g.maxScore}
                       </Td>
-                      <Td className="text-right font-mono">
+                      <Td label="Flags" className="text-right font-mono">
                         {g.flags ? (
                           <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
                             {g.flags}
@@ -129,15 +108,13 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                           "—"
                         )}
                       </Td>
-                      <Td className="text-right text-ink-3">
-                        {isOpen ? "↓" : "→"}
-                      </Td>
                     </tr>
                     {isOpen && (
                       <tr>
                         <td
-                          colSpan={6}
-                          className="border-b border-rule bg-surface p-6 tablet:p-8"
+                          colSpan={5}
+                          id={`manual-${g.id}`}
+                          className="border-b border-rule bg-surface p-4 narrow:p-6 tablet:p-8"
                         >
                           <div className="mx-auto max-w-[800px]">
                             <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -152,7 +129,7 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                                   <span className="text-ink-3">·</span>
                                   <span>{g.test}</span>
                                   <span className="text-ink-3">·</span>
-                                  <span className="font-mono">{g.date}</span>
+                                  <span>{g.submittedAt ? new Date(g.submittedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""}</span>
                                 </div>
                               </div>
                               <span className="whitespace-nowrap rounded-full border border-rule-2 bg-raised px-2.5 py-1 text-[12px] font-medium text-ink-3">
@@ -176,10 +153,11 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                             </div>
 
                             <div className="mb-4 flex flex-wrap items-center gap-3 border-t border-rule pt-4">
-                              <span className="text-[12.5px] font-medium text-ink-3">
+                              <label htmlFor={`manual-mark-${g.id}`} className="text-[12.5px] font-medium text-ink-3">
                                 Your mark
-                              </span>
+                              </label>
                               <input
+                                id={`manual-mark-${g.id}`}
                                 type="text"
                                 inputMode="decimal"
                                 placeholder="—"
@@ -198,9 +176,13 @@ export const ManualGradingQueue = ({ items, onSave }) => {
                               </span>
                             </div>
 
+                            <label htmlFor={`manual-remark-${g.id}`} className="mb-1.5 block text-[12px] font-semibold text-ink-3">
+                              Feedback for the student <span className="font-normal">(optional)</span>
+                            </label>
                             <textarea
+                              id={`manual-remark-${g.id}`}
                               rows={2}
-                              placeholder="Add a remark for the student…"
+                              placeholder="What was good, what to fix next time"
                               value={remarks[g.id] ?? g.feedback ?? ""}
                               onChange={(e) =>
                                 setRemarks((prev) => ({

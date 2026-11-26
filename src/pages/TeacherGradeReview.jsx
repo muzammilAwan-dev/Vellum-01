@@ -1,6 +1,5 @@
 import { useState, useMemo, Fragment } from "react";
-import { CheckCircle2, AlertTriangle, Flag, Search as SearchIcon } from "lucide-react";
-import { Chip, FilterButton, MetricCard, PageError, PageLoading, StatusDot, TableShell, Td, Th, Scope } from "@/components/common";
+import { Chip, PageError, PageHeader, PageLoading, RowToggle, Scope, SearchField, Segmented, StatusDot, TableShell, Td, Th } from "@/components/common";
 import { GradingDetailPanel } from "@/components/teacher-grade-review/GradingDetailPanel";
 import { ManualGradingQueue } from "@/components/teacher-grade-review/ManualGradingQueue";
 import { useToast } from "@/context/useToast";
@@ -39,8 +38,11 @@ const TeacherGradeReview = () => {
   );
   const [groupBy, setGroupBy] = usePersistentState(
     "vellum.gradeReview.groupBy",
-    "question",
+    "answers",
   );
+  // "answers" = one row per answer (worst confidence first); "question" = the same answers grouped
+  // under each question (fastest way to mark: one rubric in your head at a time); "student".
+  const grouping = ["answers", "question", "student"].includes(groupBy) ? groupBy : "answers";
   const [expanded, setExpanded] = useState(null);
   const [approving, setApproving] = useState(false);
 
@@ -54,7 +56,8 @@ const TeacherGradeReview = () => {
         (r) =>
           r.student.toLowerCase().includes(q) ||
           r.roll.toLowerCase().includes(q) ||
-          r.test.toLowerCase().includes(q),
+          r.test.toLowerCase().includes(q) ||
+          (r.question ?? "").toLowerCase().includes(q),
       );
     }
     if (filter === "pending") rows = rows.filter((r) => !isReviewed(r));
@@ -85,7 +88,7 @@ const TeacherGradeReview = () => {
   }, [aiItems, search, filter, sortBy, sortDir]);
 
   const groupedRows = useMemo(() => {
-    if (groupBy !== "student") return null;
+    if (grouping !== "student") return null;
     const map = new Map();
     filtered.forEach((g) => {
       const key = g.student + "::" + g.test;
@@ -120,7 +123,19 @@ const TeacherGradeReview = () => {
         allReviewed: reviewedCount === grp.rows.length,
       };
     });
-  }, [filtered, groupBy]);
+  }, [filtered, grouping]);
+
+  // By question: same rows, ordered by test then question, with a header row per question.
+  const byQuestion = useMemo(() => {
+    if (grouping !== "question") return null;
+    const groups = new Map();
+    filtered.forEach((g) => {
+      const key = g.testId + "::" + g.questionId;
+      if (!groups.has(key)) groups.set(key, { key, test: g.test, question: g.question, topic: g.topic, max: g.maxScore, rows: [] });
+      groups.get(key).rows.push(g);
+    });
+    return [...groups.values()];
+  }, [filtered, grouping]);
 
   const pendingTotal = aiItems.filter((g) => !isReviewed(g)).length;
   const lowTotal = aiItems.filter((g) => g.confidence === "low" && !isReviewed(g)).length;
@@ -145,8 +160,14 @@ const TeacherGradeReview = () => {
       return false;
     }
   };
+  // After a final mark, the next answer still waiting opens by itself (grade without hunting).
+  const ordered = grouping === "question" ? (byQuestion ?? []).flatMap((q) => q.rows) : filtered;
+  const nextAfter = (g) => {
+    const i = ordered.findIndex((r) => r.id === g.id);
+    return ordered.slice(i + 1).find((r) => !isReviewed(r)) ?? null;
+  };
   const handleSave = async (g, score, remark, final, reason) => {
-    if ((await saveMark(g, score, remark, final, reason)) && final) setExpanded(null);
+    if ((await saveMark(g, score, remark, final, reason)) && final) setExpanded(nextAfter(g)?.id ?? null);
   };
   const handleSaveGrouped = (g, score, remark, final, reason) =>
     saveMark(g, score, remark, final, reason);
@@ -168,371 +189,264 @@ const TeacherGradeReview = () => {
   if (isLoading) return <PageLoading />;
   if (error) return <PageError error={error} onRetry={refetch} />;
 
+  const confDot = (c) => cn("size-1.5 shrink-0 rounded-full", c === "high" ? "bg-success" : c === "med" ? "bg-warning" : "bg-danger");
+  const flagCell = (n) =>
+    n ? (
+      <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
+        {n} <span className="sr-only">{n === 1 ? "flag" : "flags"}</span>
+      </span>
+    ) : (
+      <span aria-label="No flags">—</span>
+    );
+  const snippet = (t = "", n = 70) => (t.length > n ? t.slice(0, n).trimEnd() + "…" : t);
+
+  // One answer row (used by "Answers" and "By question").
+  const answerRow = (g, { showQuestion }) => {
+    const isOpen = expanded === g.id;
+    const panelId = `grade-panel-${g.id}`;
+    return (
+      <Fragment key={g.id}>
+        <tr
+          onClick={() => setExpanded(isOpen ? null : g.id)}
+          className={cn("cursor-pointer border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50", isOpen && "bg-raised/60")}
+        >
+          <Td className="text-[13.5px]">
+            <RowToggle open={isOpen} onToggle={() => setExpanded(isOpen ? null : g.id)} controls={panelId}>
+              {g.student}
+            </RowToggle>
+            {showQuestion && <div className="ml-5 mt-0.5 text-[12.5px] leading-snug text-ink-3">{snippet(g.question)}</div>}
+          </Td>
+          <Td label="Roll no" hideMid hidePhone className="whitespace-nowrap font-mono text-[12px]">{g.roll}</Td>
+          {showQuestion && <Td label="Test" hideMid>{g.test}</Td>}
+          <Td label="AI mark" className="whitespace-nowrap text-right font-mono tabular-nums text-ink">
+            {g.score} / {g.maxScore}
+          </Td>
+          <Td label="Confidence">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-ink-2">
+              <span aria-hidden="true" className={confDot(g.confidence)} />
+              {CONF_LABEL[g.confidence]}
+            </span>
+          </Td>
+          <Td label="Status">
+            <StatusDot tone={isReviewed(g) ? "success" : "warning"}>{isReviewed(g) ? "Reviewed" : "Pending"}</StatusDot>
+          </Td>
+          <Td label="Flags" hidePhone={!g.flags} className="text-right font-mono">{flagCell(g.flags)}</Td>
+        </tr>
+        {isOpen && (
+          <tr>
+            <td colSpan={7} className="p-0" id={panelId}>
+              <GradingDetailPanel
+                g={g}
+                nextLabel={nextAfter(g) ? "Accept & next" : "Accept"}
+                onClose={() => setExpanded(null)}
+                onSave={(score, remark, final, reason) => handleSave(g, score, remark, final, reason)}
+              />
+            </td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  };
+
+  const rows = grouping === "student" ? groupedRows : grouping === "question" ? byQuestion : filtered;
+
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Grade review
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Review <span className="text-ink-3">grades</span>
-          </h1>
-          <p className="mt-2 max-w-[640px] text-[14px] leading-relaxed text-ink-2">
-            {view === "review"
-              ? aiItems.length === 0
-                ? "No AI-graded answers yet. They appear here once students submit."
-                : `${pendingTotal} AI-graded ${pendingTotal === 1 ? "answer" : "answers"} awaiting your review across ${testCount} ${testCount === 1 ? "test" : "tests"}. Students only see a mark once you've approved it.`
-              : "These tests have AI grading off, so every written answer waits here for your mark."}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {[
-            ["review", "AI-graded"],
-            ["manual", `Manual queue${manualPending ? ` (${manualPending})` : ""}`],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => {
-                setView(id);
-                setExpanded(null);
-              }}
-              className={cn(
-                "rounded-[var(--radius-control)] border px-3.5 py-1.5 text-[12.5px] font-semibold transition-all duration-200",
-                view === id
-                  ? "border-primary bg-primary text-on-primary shadow-[var(--shadow-primary)]"
-                  : "border-rule-2 text-ink-2 hover:border-rule-3 hover:bg-raised hover:text-ink",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Grade review" }]}
+        title="Grade review"
+        intro={
+          view === "review"
+            ? aiItems.length === 0
+              ? "No AI-graded answers yet. They appear here once students submit."
+              : pendingTotal === 0
+                ? "Every AI-graded answer is reviewed. Students see a mark once you've approved it."
+                : `${pendingTotal} AI-graded ${pendingTotal === 1 ? "answer is" : "answers are"} waiting for you across ${testCount} ${testCount === 1 ? "test" : "tests"}${lowTotal ? `, ${lowTotal} with low confidence (check those first)` : ""}. Students only see a mark once you've approved it.`
+            : "These tests have AI grading off, so every written answer waits here for your mark."
+        }
+        actions={
+          view === "review" && approvable.length > 0 ? (
+            <Button onClick={bulkApprove} disabled={approving}>
+              {approving ? "Approving…" : `Approve ${approvable.length} high-confidence`}
+            </Button>
+          ) : null
+        }
+      >
+        <Segmented
+          className="mt-5"
+          label="Which answers"
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            setExpanded(null);
+          }}
+          options={[
+            { value: "review", label: "AI-graded", count: pendingTotal || undefined },
+            { value: "manual", label: "Manual queue", count: manualPending || undefined },
+          ]}
+        />
+      </PageHeader>
 
       {view === "manual" && <ManualGradingQueue items={manualItems} onSave={saveMark} />}
 
       {view === "review" && (
         <>
-          <div className="bento mb-8">
-            <MetricCard
-              icon={CheckCircle2}
-              iconTone={pendingTotal > 0 ? "warning" : "success"}
-              label="Pending review"
-              value={pendingTotal}
-              delta={`Across ${testCount} ${testCount === 1 ? "test" : "tests"}`}
-              deltaTone="success"
-            />
-            <MetricCard
-              icon={AlertTriangle}
-              iconTone="danger"
-              label="Low confidence"
-              value={lowTotal}
-              delta="Needs your eye first"
-              deltaTone="danger"
-            />
-            <MetricCard
-              icon={Flag}
-              iconTone="warning"
-              label="Flagged"
-              value={flaggedTotal}
-              delta="Anti-cheat events"
-              deltaTone="warning"
-            />
-            <MetricCard
-              icon={CheckCircle2}
-              iconTone="primary"
-              label="Reviewed"
-              value={`${reviewedTotal}/${aiItems.length}`}
-              delta={`${progressPct}% complete`}
-              deltaTone="success"
-            />
-          </div>
-
-          {/* Filter rail — Tesla-style button dropdowns */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="flex h-[52px] min-w-[240px] flex-1 items-center gap-2.5 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[360px]">
-              <SearchIcon size={14} className="shrink-0 text-ink-3" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search student, roll no, or test…"
-                className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-              />
-            </label>
-
-            <FilterButton
-              label="Status"
-              value={
-                filter === "all"
-                  ? "All"
-                  : filter === "pending"
-                    ? `Pending (${pendingTotal})`
-                    : filter === "low"
-                      ? "Low confidence"
-                      : filter === "flagged"
-                        ? "Flagged"
-                        : "Reviewed"
-              }
-              active={filter !== "all"}
-              onClick={() => {}}
-            />
-            <FilterButton
-              label="Group by"
-              value={groupBy === "student" ? "Student" : "Question"}
-              onClick={() => {}}
-            />
-
-            <div className="ml-auto flex items-center gap-3 text-[13px] font-medium text-ink-3">
-              <span>{progressPct}% reviewed</span>
-              <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-rule">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
+          {/* Progress: one line, not four tiles (the chips below carry the counts). */}
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-ink-2">
+            <span className="font-medium text-ink">
+              {reviewedTotal} of {aiItems.length} reviewed
+            </span>
+            <div
+              className="h-1.5 w-[160px] max-w-full overflow-hidden rounded-full bg-rule"
+              role="progressbar"
+              aria-label="Answers reviewed"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all duration-500" style={{ width: `${progressPct}%` }} />
             </div>
+            <span className="text-ink-3">{progressPct}%</span>
           </div>
 
-          {/* Filter chips below the rail for quick switching */}
-          <div className="mb-4 flex flex-wrap items-center gap-1.5">
-            <Chip
-              active={filter === "pending"}
-              onClick={() => setFilter("pending")}
-            >
-              Pending ({pendingTotal})
-            </Chip>
-            <Chip active={filter === "low"} onClick={() => setFilter("low")}>
-              Low confidence ({lowTotal})
-            </Chip>
-            <Chip
-              active={filter === "flagged"}
-              onClick={() => setFilter("flagged")}
-            >
-              Flagged ({flaggedTotal})
-            </Chip>
-            <Chip
-              active={filter === "reviewed"}
-              onClick={() => setFilter("reviewed")}
-            >
-              Reviewed ({reviewedTotal})
-            </Chip>
-            <Chip active={filter === "all"} onClick={() => setFilter("all")}>
-              All
-            </Chip>
-            <span className="mx-2 h-4 w-px bg-rule-2" />
-            <Chip
-              active={groupBy === "question"}
-              onClick={() => {
-                setGroupBy("question");
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <SearchField
+              label="Search answers"
+              value={search}
+              onChange={setSearch}
+              placeholder="Student, roll no, test or question…"
+              className="w-full narrow:w-[300px]"
+            />
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Show">
+              <Chip active={filter === "pending"} onClick={() => setFilter("pending")}>
+                Pending <span className="tabular-nums">{pendingTotal}</span>
+              </Chip>
+              <Chip active={filter === "low"} onClick={() => setFilter("low")}>
+                Low confidence <span className="tabular-nums">{lowTotal}</span>
+              </Chip>
+              <Chip active={filter === "flagged"} onClick={() => setFilter("flagged")}>
+                Flagged <span className="tabular-nums">{flaggedTotal}</span>
+              </Chip>
+              <Chip active={filter === "reviewed"} onClick={() => setFilter("reviewed")}>
+                Reviewed <span className="tabular-nums">{reviewedTotal}</span>
+              </Chip>
+              <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+                All
+              </Chip>
+            </div>
+            <Segmented
+              size="sm"
+              className="xl:ml-auto"
+              label="Group answers"
+              value={grouping}
+              onChange={(v) => {
+                setGroupBy(v);
                 setExpanded(null);
               }}
-            >
-              By question
-            </Chip>
-            <Chip
-              active={groupBy === "student"}
-              onClick={() => {
-                setGroupBy("student");
-                setExpanded(null);
-              }}
-            >
-              By student
-            </Chip>
+              options={[
+                { value: "answers", label: "Answers" },
+                { value: "question", label: "By question" },
+                { value: "student", label: "By student" },
+              ]}
+            />
           </div>
 
-          <TableShell>
+          <TableShell stack label="Answers to review">
             <thead>
               <tr className="border-b border-rule-2">
-                <Th>Student</Th>
-                <Th>Roll no</Th>
-                <Th>Test</Th>
-                <Th className="text-right">AI score</Th>
+                <Th>{grouping === "student" ? "Student" : "Student and question"}</Th>
+                <Th hideMid>Roll no</Th>
+                {grouping !== "question" && <Th hideMid>Test</Th>}
+                <Th className="text-right">{grouping === "student" ? "AI total" : "AI mark"}</Th>
                 <Th>Confidence</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Flags</Th>
-                <Th className="w-10"></Th>
               </tr>
             </thead>
             <tbody>
-              {(groupBy === "student" ? groupedRows : filtered).length ===
-                0 && (
+              {rows.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-12 text-center text-[13px] text-ink-3"
-                  >
-                    No submissions match these filters.
+                  <td colSpan={7} className="px-6 py-12 text-center text-[13px] text-ink-3">
+                    {filter === "pending" && !search.trim() ? "Nothing waiting. Every answer here is reviewed." : "No answers match these filters."}
                   </td>
                 </tr>
               )}
 
-              {groupBy === "question" &&
-                filtered.map((g) => {
-                  const isOpen = expanded === g.id;
-                  const displayedScore = g.score;
-                  const tone = isReviewed(g) ? "success" : "warning";
-                  const label = isReviewed(g) ? "Reviewed" : "Pending";
-                  return (
-                    <Fragment key={g.id}>
-                      <tr
-                        onClick={() => setExpanded(isOpen ? null : g.id)}
-                        className={cn(
-                          "cursor-pointer border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50",
-                          isOpen && "bg-raised/60",
-                        )}
-                      >
-                        <Td className="text-[13.5px] font-medium text-ink">
-                          {g.student}
-                        </Td>
-                        <Td className="font-mono text-[12px]">{g.roll}</Td>
-                        <Td>{g.test}</Td>
-                        <Td className="text-right font-mono tabular-nums text-ink">
-                          {displayedScore} / {g.maxScore}
-                        </Td>
-                        <Td>
-                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2">
-                            <span
-                              className={cn(
-                                "size-1.5 rounded-full",
-                                g.confidence === "high"
-                                  ? "bg-success"
-                                  : g.confidence === "med"
-                                    ? "bg-warning"
-                                    : "bg-danger",
-                              )}
-                            />
-                            {CONF_LABEL[g.confidence]}
-                          </span>
-                        </Td>
-                        <Td>
-                          <StatusDot tone={tone}>{label}</StatusDot>
-                        </Td>
-                        <Td className="text-right font-mono">
-                          {g.flags ? (
-                            <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
-                              {g.flags}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </Td>
-                        <Td className="text-right text-ink-3">
-                          {isOpen ? "↓" : "→"}
-                        </Td>
-                      </tr>
-                      {isOpen && (
-                        <tr>
-                          <td colSpan={8} className="p-0">
-                            <GradingDetailPanel
-                              g={g}
-                              onClose={() => setExpanded(null)}
-                              onSave={(score, remark, final, reason) =>
-                                handleSave(g, score, remark, final, reason)
-                              }
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
+              {grouping === "answers" && filtered.map((g) => answerRow(g, { showQuestion: true }))}
 
-              {groupBy === "student" &&
+              {grouping === "question" &&
+                byQuestion.map((q) => (
+                  <Fragment key={q.key}>
+                    <tr className="border-b border-rule bg-sunken">
+                      <td colSpan={7} className="px-3 py-3 narrow:px-4">
+                        <div className="text-[12px] font-semibold text-ink-3">
+                          {q.test} · {q.topic ? `${q.topic} · ` : ""}
+                          {q.max} {q.max === 1 ? "mark" : "marks"} · {q.rows.length} {q.rows.length === 1 ? "answer" : "answers"}
+                        </div>
+                        <div className="mt-0.5 text-[14px] font-medium leading-snug text-ink">{q.question}</div>
+                      </td>
+                    </tr>
+                    {q.rows.map((g) => answerRow(g, { showQuestion: false }))}
+                  </Fragment>
+                ))}
+
+              {grouping === "student" &&
                 groupedRows.map((grp) => {
                   const isOpen = expanded === grp.key;
+                  const panelId = `grade-group-${grp.key.replace(/[^a-z0-9]/gi, "-")}`;
                   return (
                     <Fragment key={grp.key}>
                       <tr
                         onClick={() => setExpanded(isOpen ? null : grp.key)}
-                        className={cn(
-                          "cursor-pointer border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50",
-                          isOpen && "bg-raised/60",
-                        )}
+                        className={cn("cursor-pointer border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50", isOpen && "bg-raised/60")}
                       >
-                        <Td className="text-[13.5px] font-medium text-ink">
-                          {grp.student}
+                        <Td className="text-[13.5px]">
+                          <RowToggle open={isOpen} onToggle={() => setExpanded(isOpen ? null : grp.key)} controls={panelId}>
+                            {grp.student}
+                          </RowToggle>
                         </Td>
-                        <Td className="font-mono text-[12px]">{grp.roll}</Td>
-                        <Td>{grp.test}</Td>
-                        <Td className="text-right font-mono tabular-nums text-ink">
+                        <Td label="Roll no" hideMid hidePhone className="whitespace-nowrap font-mono text-[12px]">{grp.roll}</Td>
+                        <Td label="Test" hideMid>{grp.test}</Td>
+                        <Td label="AI total" className="whitespace-nowrap text-right font-mono tabular-nums text-ink">
                           {grp.totalScore} / {grp.totalMax}
                         </Td>
-                        <Td>
-                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-2">
-                            <span
-                              className={cn(
-                                "size-1.5 rounded-full",
-                                grp.worstConfidence === "high"
-                                  ? "bg-success"
-                                  : grp.worstConfidence === "med"
-                                    ? "bg-warning"
-                                    : "bg-danger",
-                              )}
-                            />
+                        <Td label="Confidence">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-ink-2">
+                            <span aria-hidden="true" className={confDot(grp.worstConfidence)} />
                             {CONF_LABEL[grp.worstConfidence]}
                           </span>
                         </Td>
-                        <Td>
-                          <StatusDot
-                            tone={grp.allReviewed ? "success" : "warning"}
-                          >
-                            {grp.allReviewed
-                              ? "Reviewed"
-                              : `${grp.reviewedCount} / ${grp.rows.length} reviewed`}
+                        <Td label="Status">
+                          <StatusDot tone={grp.allReviewed ? "success" : "warning"}>
+                            {grp.allReviewed ? "Reviewed" : `${grp.reviewedCount} / ${grp.rows.length} reviewed`}
                           </StatusDot>
                         </Td>
-                        <Td className="text-right font-mono">
-                          {grp.totalFlags ? (
-                            <span className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
-                              {grp.totalFlags}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </Td>
-                        <Td className="text-right text-ink-3">
-                          {isOpen ? "↓" : "→"}
-                        </Td>
+                        <Td label="Flags" className="text-right font-mono">{flagCell(grp.totalFlags)}</Td>
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td
-                            colSpan={8}
-                            className="border-b border-rule bg-surface p-0"
-                          >
-                            <div className="bg-surface">
-                              <div className="px-6 pt-5 font-display text-[13.5px] font-semibold text-ink-2 tablet:px-12">
-                                {grp.student}'s full submission —{" "}
-                                {grp.rows.length}{" "}
-                                {grp.rows.length === 1
-                                  ? "question"
-                                  : "questions"}
-                              </div>
-                              {grp.rows.map((g, i) => (
-                                <div key={g.id}>
-                                  <div className="px-6 pt-4 text-[12px] font-semibold text-ink-3 tablet:px-12">
-                                    Question {i + 1} of {grp.rows.length}
-                                  </div>
-                                  <GradingDetailPanel
-                                    g={g}
-                                    showClose={false}
-                                    onClose={() => {}}
-                                    onSave={(score, remark, final, reason) =>
-                                      handleSaveGrouped(g, score, remark, final, reason)
-                                    }
-                                  />
+                          <td colSpan={7} id={panelId} className="border-b border-rule bg-surface p-0">
+                            <div className="px-4 pt-5 font-display text-[13.5px] font-semibold text-ink-2 narrow:px-6 tablet:px-12">
+                              {grp.student}'s submission · {grp.rows.length} {grp.rows.length === 1 ? "answer" : "answers"} to mark
+                            </div>
+                            {grp.rows.map((g, i) => (
+                              <div key={g.id}>
+                                <div className="px-4 pt-4 text-[12px] font-semibold text-ink-3 narrow:px-6 tablet:px-12">
+                                  Answer {i + 1} of {grp.rows.length}
                                 </div>
-                              ))}
-                              <div className="flex justify-end px-6 py-5 tablet:px-12">
-                                <Button
-                                  onClick={() => setExpanded(null)} variant="outline"
-                                >
-                                  Close submission
-                                </Button>
+                                <GradingDetailPanel
+                                  g={g}
+                                  showClose={false}
+                                  nextLabel="Accept"
+                                  onClose={() => {}}
+                                  onSave={(score, remark, final, reason) => handleSaveGrouped(g, score, remark, final, reason)}
+                                />
                               </div>
+                            ))}
+                            <div className="flex justify-end px-4 py-5 narrow:px-6 tablet:px-12">
+                              <Button onClick={() => setExpanded(null)} variant="outline">
+                                Close submission
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -543,16 +457,9 @@ const TeacherGradeReview = () => {
             </tbody>
           </TableShell>
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button onClick={bulkApprove} disabled={approving || approvable.length === 0}>
-              {approving
-                ? "Approving…"
-                : `Approve ${approvable.length} high-confidence ${approvable.length === 1 ? "grade" : "grades"}`}
-            </Button>
-            <span className="self-center text-[12.5px] text-ink-3">
-              When students see results depends on each test's release setting.
-            </span>
-          </div>
+          <p className="mt-4 text-[12.5px] text-ink-3">
+            When students see results depends on each test's release setting.
+          </p>
         </>
       )}
     </div>

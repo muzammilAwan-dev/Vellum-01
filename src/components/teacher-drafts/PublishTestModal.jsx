@@ -39,7 +39,7 @@ const Toggle = ({ checked, onChange, title, body }) => (
       type="checkbox"
       checked={checked}
       onChange={(e) => onChange(e.target.checked)}
-      className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+      className="mt-0.5 size-5 shrink-0 accent-[var(--color-primary)]"
     />
     <span>
       <span className="block text-[14px] font-medium text-ink">{title}</span>

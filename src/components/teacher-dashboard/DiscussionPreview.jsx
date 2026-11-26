@@ -7,11 +7,12 @@ import { sortThreads } from "@/lib/discussion";
 // DISCUSSION PREVIEW — the three most recently active unresolved threads of the
 // class chosen in the sidebar (same data as the Discussion page).
 // ═══════════════════════════════════════════════════════════════
+// Same contrast-safe tags as the Discussion page (solid surface, coloured text and border).
 const TAG_STYLE = {
-  Question: "border-warning/25 bg-warning-dim text-warning",
-  Discussion: "border-primary/25 bg-primary-dim text-primary",
-  Resource: "border-success/25 bg-success-dim text-success",
-  Announcement: "border-danger/25 bg-danger-dim text-danger",
+  Question: "border-warning/40 bg-surface text-warning dark:bg-raised",
+  Discussion: "border-primary/40 bg-surface text-primary dark:bg-raised",
+  Resource: "border-success/40 bg-surface text-success dark:bg-raised",
+  Announcement: "border-danger/40 bg-surface text-danger dark:bg-raised",
 };
 
 export const DiscussionPreview = ({ onOpenAll }) => {
@@ -28,7 +29,7 @@ export const DiscussionPreview = ({ onOpenAll }) => {
           <button
             type="button"
             onClick={onOpenAll}
-            className="flex w-full flex-col items-start gap-1.5 rounded-lg px-2 py-3 text-left transition-colors hover:bg-raised"
+            className="flex w-full flex-col items-start gap-1.5 rounded-lg px-2 py-3 text-left transition-colors hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <span className={cn("whitespace-nowrap rounded-full border px-2 py-0.5 text-[12px] font-semibold", TAG_STYLE[t.tag] || "border-rule-2 bg-raised text-ink-3")}>
               {t.tag}

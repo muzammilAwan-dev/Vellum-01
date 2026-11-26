@@ -97,7 +97,7 @@ export const ProfileSecurity = ({ profile, forced }) => {
           <input className={inputClass} type={type} name="again" autoComplete="new-password" maxLength={PASSWORD_MAX_LENGTH} value={again} onChange={(e) => setAgain(e.target.value)} aria-invalid={mismatch ? true : undefined} />
           {mismatch && <span className="mt-1.5 block text-[12px] text-danger">The two new passwords don't match yet</span>}
         </Field>
-        <label className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2.5 text-[13.5px] text-ink-2">
+        <label className="mb-5 flex min-h-11 w-fit cursor-pointer items-center gap-2.5 text-[13.5px] text-ink-2">
           <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-primary)]" />
           Show passwords
         </label>

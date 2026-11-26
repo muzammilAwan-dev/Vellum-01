@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ModalShell, PageError } from "@/components/common";
+import { ModalShell, PageError, SearchField } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { useBank } from "@/hooks/useBank";
 import { typeLabel } from "@/lib/questions";
@@ -15,8 +15,10 @@ export const SwapQuestionModal = ({ open, onClose, subjectId, question, usedBank
   if (!open) return null;
 
   const q = query.trim().toLowerCase();
+  // Never offer the question being replaced (same bank id or the same words), nor one already in the test.
+  const same = (a = "", b = "") => a.toLowerCase().replace(/\s+/g, " ").trim() === b.toLowerCase().replace(/\s+/g, " ").trim();
   const rows = (data ?? [])
-    .filter((b) => !usedBankIds.includes(b.id))
+    .filter((b) => !usedBankIds.includes(b.id) && b.id !== question?.bankId && !same(b.text, question?.text))
     .filter((b) => !q || b.text.toLowerCase().includes(q) || b.topic.toLowerCase().includes(q))
     .sort((a, b) => Number(b.topic === question?.topic) - Number(a.topic === question?.topic) || Number(b.type === question?.type) - Number(a.type === question?.type));
 
@@ -26,13 +28,7 @@ export const SwapQuestionModal = ({ open, onClose, subjectId, question, usedBank
         Replacing <span className="font-medium text-ink">“{(question?.text ?? "").slice(0, 80)}{(question?.text ?? "").length > 80 ? "…" : ""}”</span> with a
         question from your bank. Questions on the same topic are listed first.
       </p>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search the bank…"
-        aria-label="Search the bank"
-        className="mb-3 h-10 w-full rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3 text-[13.5px] text-ink outline-none focus:border-primary"
-      />
+      <SearchField label="Search the bank" value={query} onChange={setQuery} placeholder="Search the bank…" className="mb-3" />
       {isLoading && <p className="py-6 text-center text-[13px] text-ink-3">Loading…</p>}
       {error && <PageError error={error} onRetry={refetch} />}
       {!isLoading && !error && rows.length === 0 && (

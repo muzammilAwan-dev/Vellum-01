@@ -62,6 +62,8 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
         ? { take: studentTests.open.length || undefined, lms: coursesToDo || undefined }
         : {};
   const countFor = (item) => liveCounts[item.id] ?? item.count;
+  // The "live" dot means a test is running right now, never decoration.
+  const anyLive = role === "teacher" && tests.some((t) => t.status === "live");
   const isActive = (viewId) => {
     const path = resolvePath(role, viewId);
     return viewId === "home" || viewId === "admin"
@@ -200,7 +202,7 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
             <div
               key={gi}
               className={cn(
-                "mb-4",
+                "mb-4 [@media(max-height:860px)]:mb-2.5",
                 // Group labels are hidden when collapsed, so a hairline separates the groups instead.
                 collapsed && "tablet:mb-2 tablet:border-b tablet:border-sidebar-rule tablet:pb-2 tablet:last:mb-0 tablet:last:border-b-0",
               )}
@@ -221,7 +223,7 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
                     aria-label={collapsed ? item.label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "relative flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[13.5px] font-medium transition-colors duration-200",
+                      "relative flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[13.5px] font-medium transition-colors duration-200 [@media(max-height:860px)]:py-1.5",
                       "text-sidebar-ink-2 hover:bg-sidebar-hover hover:text-sidebar-ink",
                       active &&
                         "bg-sidebar-active text-sidebar-ink",
@@ -247,8 +249,8 @@ export const Sidebar = ({ role, mobileOpen, onCloseMobile }) => {
                     {!collapsed && (
                       <span className="truncate">{item.label}</span>
                     )}
-                    {!collapsed && item.live && (
-                      <span className="ml-0.5 size-1.5 shrink-0 animate-beacon rounded-full bg-success" />
+                    {!collapsed && item.live && anyLive && (
+                      <span className="ml-0.5 size-1.5 shrink-0 animate-beacon rounded-full bg-success" aria-label="A test is live" role="img" />
                     )}
                     {!collapsed && countFor(item) != null && (
                       <span

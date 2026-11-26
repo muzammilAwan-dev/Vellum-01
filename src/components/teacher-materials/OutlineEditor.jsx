@@ -48,9 +48,12 @@ const OutlineForm = ({ subject }) => {
     <Bento className="mt-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SectionHeader label={`${subject.name} course outline`} />
-        <Button variant="outline" size="sm" onClick={fill} disabled={!outlineUploads.length}>
-          Fill from {outlineUploads.length} outline {outlineUploads.length === 1 ? "upload" : "uploads"}
-        </Button>
+        {/* Only offered when there is something to fill from (never "Fill from 0 uploads"). */}
+        {outlineUploads.length > 0 && (
+          <Button variant="outline" size="sm" onClick={fill}>
+            Fill from {outlineUploads.length} outline {outlineUploads.length === 1 ? "upload" : "uploads"}
+          </Button>
+        )}
       </div>
       <Field label="Outline" hint="The units and topics you teach. Topic detection and question generation lean on it.">
         <textarea
@@ -58,6 +61,7 @@ const OutlineForm = ({ subject }) => {
           onChange={(e) => setText(e.target.value)}
           rows={8}
           aria-label="Course outline"
+          placeholder={"Paste or type the units and topics, one per line. For example:\nUnit 1 Forces and motion\nUnit 2 Energy"}
           className={`${inputClass} min-h-40`}
         />
       </Field>

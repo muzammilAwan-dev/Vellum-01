@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { createSubject, deleteSubject, updateSubject } from "@/api/subjects";
-import { Field, LoadingButton, PageError, PageLoading, Scope, inputClass } from "@/components/common";
+import { Field, LoadingButton, PageError, PageHeader, PageLoading, Scope, inputClass } from "@/components/common";
+import { ActionMenu } from "@/components/ui/menu";
 import { useApp } from "@/context/useApp";
 import { useToast } from "@/context/useToast";
 
@@ -45,7 +46,7 @@ const SubjectRow = ({ subject, onSaved }) => {
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-4 rounded-xl border border-rule bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-rule bg-surface px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-semibold text-ink">{subject.name}</div>
           <div className="text-[12px] text-ink-3">
@@ -54,15 +55,18 @@ const SubjectRow = ({ subject, onSaved }) => {
         </div>
         {confirming ? (
           <>
-            <span className="text-[12.5px] text-ink-2">Delete {subject.name}?</span>
+            <span role="alert" className="text-[12.5px] text-ink-2">Delete {subject.name}? Tests and materials of this subject block it.</span>
             <LoadingButton variant="danger" loading={busy} onClick={remove}>Delete</LoadingButton>
             <LoadingButton variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>Keep</LoadingButton>
           </>
         ) : (
-          <>
-            <LoadingButton variant="secondary" onClick={() => setEditing(true)}>Edit</LoadingButton>
-            <LoadingButton variant="ghost" onClick={() => setConfirming(true)}>Delete</LoadingButton>
-          </>
+          <ActionMenu
+            label={`Actions for ${subject.name}`}
+            items={[
+              { id: "edit", label: "Rename or edit outline", onSelect: () => setEditing(true) },
+              { id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => setConfirming(true) },
+            ]}
+          />
         )}
       </div>
     );
@@ -124,19 +128,16 @@ const TeacherSubjects = () => {
 
   return (
     <div className="mx-auto max-w-[860px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        {activeClassObj ? activeClassObj.name : "Class"} <span>/</span> Subjects
-      </div>
-      <h1 className="mb-1 font-display text-[26px] font-semibold tracking-tight text-ink">Subjects</h1>
-      <p className="mb-6 text-[13.5px] text-ink-2">
-        What {activeClassObj?.short ?? "this class"} studies. Switch between them from the sidebar.
-        {" "}Working in <Scope />.
-      </p>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Subjects" }]}
+        title="Subjects"
+        intro={`What ${activeClassObj?.short ?? "this class"} studies. Switch between them from the sidebar. Each subject keeps its own outline, materials and tests.`}
+      />
 
-      <form onSubmit={add} className="mb-6 flex gap-2">
+      <form onSubmit={add} className="mb-6 flex flex-wrap gap-2">
         <input
-          className={`${inputClass} flex-1`}
-          placeholder="New subject, e.g. Biology"
+          className={`${inputClass} min-w-0 flex-1 basis-[220px]`}
+          placeholder="e.g. Biology"
           value={name}
           maxLength={60}
           onChange={(e) => setName(e.target.value)}

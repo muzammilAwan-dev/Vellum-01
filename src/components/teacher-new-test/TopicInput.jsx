@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useState } from "react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -66,14 +67,14 @@ export const TopicInput = ({
                 remove(t);
               }}
               aria-label={`Remove ${t}`}
-              className="px-1 text-[15px] leading-none opacity-60 transition-opacity hover:opacity-100"
+              className="grid size-6 place-items-center rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              ×
+              <X size={13} aria-hidden="true" />
             </button>
           </span>
         ))}
         <input
-          className="min-w-[140px] flex-1 bg-transparent px-1 py-1 text-[13.5px] text-ink outline-none placeholder:text-ink-3"
+          className="min-w-[140px] flex-1 bg-transparent px-1 py-1 text-[16px] text-ink outline-none placeholder:text-ink-3 narrow:text-[13.5px]"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onFocus={() => setFocused(true)}

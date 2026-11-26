@@ -37,11 +37,13 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
     (t) => !rows.some((r) => r.type === t),
   );
 
+  // A container query (not the viewport) decides the row layout: in a narrow column each type takes
+  // two lines (name, subtotal, remove / then the count and marks controls), so nothing is squeezed.
   const marksMatch = targetMarks == null || totalMarks === targetMarks;
   const marksOff = targetMarks != null ? totalMarks - targetMarks : 0;
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius-container)] border border-rule-2 bg-sunken shadow-[var(--shadow-card)]">
+    <div className="@container overflow-hidden rounded-[var(--radius-container)] border border-rule-2 bg-sunken shadow-[var(--shadow-card)]">
       <div className="flex items-center justify-between border-b border-rule px-4 py-3 font-mono text-[12px] font-semibold text-ink-2">
         <span>Question types</span>
         <span
@@ -52,7 +54,7 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
               : "bg-warning-dim text-warning",
           )}
         >
-          {totalQuestions} q · {totalMarks} marks
+          {totalQuestions} questions · {totalMarks} marks
         </span>
       </div>
 
@@ -62,9 +64,9 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
           return (
             <div
               key={r.type}
-              className="grid grid-cols-[minmax(0,130px)_minmax(0,1fr)_52px_28px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface/50"
+              className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-2.5 px-4 py-3 transition-colors hover:bg-surface/50 @[34rem]:grid-cols-[minmax(0,130px)_minmax(0,1fr)_52px_36px]"
             >
-              <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-0.5">
                 <span className="font-mono text-[12px] font-bold tracking-wider text-primary">
                   {meta.short}
                 </span>
@@ -73,8 +75,8 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                 </span>
               </div>
 
-              <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                <div className="inline-flex h-8 items-stretch overflow-hidden rounded-[var(--radius-control)] border border-rule-2 bg-surface">
+              <div className="col-span-3 row-start-2 flex min-w-0 flex-wrap items-center gap-2.5 @[34rem]:col-span-1 @[34rem]:col-start-2 @[34rem]:row-start-1">
+                <div className="inline-flex h-9 items-stretch overflow-hidden rounded-[var(--radius-control)] border border-rule-2 bg-surface">
                   <button
                     type="button"
                     onClick={() =>
@@ -82,7 +84,7 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                     }
                     disabled={r.count <= 0}
                     aria-label={`Fewer ${meta.label} questions`}
-                    className="grid w-7 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+                    className="grid w-9 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 disabled:text-ink-3 pointer-coarse:w-11"
                   >
                     <Minus size={14} />
                   </button>
@@ -97,7 +99,8 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                           v === "" ? 0 : Math.min(meta.max, parseInt(v, 10)),
                       });
                     }}
-                    className="w-11 border-x border-rule bg-transparent text-center font-mono text-[13px] font-semibold tabular-nums text-ink outline-none focus:bg-bg"
+                    aria-label={`Number of ${meta.label.toLowerCase()} questions`}
+                    className="w-12 border-x border-rule bg-transparent text-center font-mono text-[16px] font-semibold tabular-nums text-ink outline-none focus:bg-bg focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 narrow:text-[13px]"
                   />
                   <button
                     type="button"
@@ -106,12 +109,12 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                     }
                     disabled={r.count >= meta.max}
                     aria-label={`More ${meta.label} questions`}
-                    className="grid w-7 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:text-ink-3"
+                    className="grid w-9 place-items-center text-ink-2 transition-colors hover:bg-raised hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40 disabled:text-ink-3 pointer-coarse:w-11"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
-                <span className="font-mono text-[13px] text-ink-3">×</span>
+                <span aria-hidden="true" className="font-mono text-[13px] text-ink-3">×</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -125,20 +128,22 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
                           : Math.max(1, Math.min(50, parseInt(v, 10))),
                     });
                   }}
-                  className="h-8 w-11 rounded-[var(--radius-control)] border border-rule-2 bg-surface text-center font-mono text-[13px] font-semibold tabular-nums text-ink outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  aria-label={`Marks per ${meta.label.toLowerCase()} question`}
+                  className="h-9 w-12 rounded-[var(--radius-control)] border border-rule-2 bg-surface text-center font-mono text-[16px] font-semibold tabular-nums text-ink outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15 narrow:text-[13px]"
                 />
-                <span className="text-[12px] text-ink-3">marks each</span>
+                <span aria-hidden="true" className="text-[12px] text-ink-3">marks each</span>
               </div>
 
-              <div className="text-right font-mono text-[14px] font-semibold tabular-nums text-ink">
+              <div className="col-start-2 row-start-1 text-right font-mono text-[14px] font-semibold tabular-nums text-ink @[34rem]:col-start-3">
                 {r.count * r.marks}
+                <span className="sr-only"> marks</span>
               </div>
 
               <button
                 type="button"
                 onClick={() => removeRow(r.type)}
                 aria-label={`Remove ${meta.label}`}
-                className="grid size-7 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
+                className="col-start-3 row-start-1 grid size-9 place-items-center rounded text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger focus-visible:ring-2 focus-visible:ring-ring/40 @[34rem]:col-start-4"
               >
                 <X size={14} />
               </button>
@@ -155,9 +160,9 @@ export const QuestionMixBuilder = ({ rows, onChange, targetMarks }) => {
               key={t}
               type="button"
               onClick={() => addRow(t)}
-              className="whitespace-nowrap rounded-full border border-dashed border-rule-2 px-2.5 py-1 text-[12px] font-medium text-ink-2 transition-colors hover:border-solid hover:border-ink-3 hover:text-ink"
+              className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-rule-2 px-3 text-[12px] font-medium text-ink-2 transition-colors hover:border-solid hover:border-ink-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              + {QUESTION_TYPE_META[t].label}
+              <Plus size={12} aria-hidden="true" /> {QUESTION_TYPE_META[t].label}
             </button>
           ))}
         </div>

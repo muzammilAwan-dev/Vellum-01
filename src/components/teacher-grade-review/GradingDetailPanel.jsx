@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Check, Minus, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { REASON_MAX_LENGTH, needsReason } from "@/lib/audit";
@@ -49,6 +49,7 @@ const GradingDetailForm = ({
   onClose,
   onSave,
   showClose = true,
+  nextLabel = "Accept & continue",
 }) => {
   const [score, setScore] = useState(g.score ?? "");
   const [remark, setRemark] = useState(g.feedback ?? "");
@@ -85,7 +86,7 @@ const GradingDetailForm = ({
   const conf = CONFIDENCE_TONE[g.confidence] || CONFIDENCE_TONE.high;
 
   return (
-    <div className="border-b border-rule bg-surface px-6 py-7 tablet:px-12">
+    <div className="border-b border-rule bg-surface px-4 py-6 narrow:px-6 tablet:px-12 tablet:py-7">
       <div className="mx-auto max-w-[1000px]">
         {/* Header */}
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -98,7 +99,7 @@ const GradingDetailForm = ({
               <span className="text-ink-3">·</span>
               <span>{g.test}</span>
               <span className="text-ink-3">·</span>
-              <span className="font-mono">{g.date}</span>
+              <span>{g.submittedAt ? new Date(g.submittedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""}</span>
             </div>
           </div>
           {g.confidence && (
@@ -159,11 +160,8 @@ const GradingDetailForm = ({
                       v.verdict === "fail" && "bg-danger-dim text-danger",
                     )}
                   >
-                    {v.verdict === "pass"
-                      ? "✓"
-                      : v.verdict === "partial"
-                        ? "~"
-                        : "✗"}
+                    {v.verdict === "pass" ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : v.verdict === "partial" ? <Minus size={11} strokeWidth={3} aria-hidden="true" /> : <X size={11} strokeWidth={3} aria-hidden="true" />}
+                    <span className="sr-only">{v.verdict === "pass" ? "Met:" : v.verdict === "partial" ? "Partly met:" : "Not met:"}</span>
                   </span>
                   <span
                     className={cn(
@@ -191,9 +189,9 @@ const GradingDetailForm = ({
         {/* Score override */}
         <div className="mb-4 rounded-[var(--radius-container)] border border-rule bg-sunken px-5 py-4">
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-[12px] font-semibold text-ink-3">
+            <label htmlFor={`mark-${g.id}`} className="text-[12px] font-semibold text-ink-3">
               Your mark
-            </span>
+            </label>
             {changed && (
               <span className="whitespace-nowrap rounded-full border border-primary/25 bg-primary-soft px-2 py-0.5 text-[12px] font-semibold text-primary">
                 Overridden (AI suggested {g.aiScore})
@@ -202,6 +200,7 @@ const GradingDetailForm = ({
           </div>
           <div className="flex items-center gap-3">
             <input
+              id={`mark-${g.id}`}
               type="text"
               inputMode="decimal"
               value={score}
@@ -241,11 +240,15 @@ const GradingDetailForm = ({
         )}
 
         {/* Remark */}
+        <label htmlFor={`feedback-${g.id}`} className="mb-1.5 block text-[12px] font-semibold text-ink-3">
+          Feedback for the student <span className="font-normal">(optional)</span>
+        </label>
         <textarea
+          id={`feedback-${g.id}`}
           rows={3}
           value={remark}
           onChange={(e) => setRemark(e.target.value)}
-          placeholder="Feedback for the student… (optional)"
+          placeholder="What was good, what to fix next time"
           className="mb-4 w-full rounded-[var(--radius-container)] border border-rule-2 bg-sunken px-3.5 py-3 text-[13.5px] leading-relaxed text-ink outline-none transition-all placeholder:text-ink-3 focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
 
@@ -265,7 +268,7 @@ const GradingDetailForm = ({
               Save as draft
             </Button>
             <Button onClick={() => save(true)} disabled={busy || score === "" || missingReason}>
-              Accept &amp; continue
+              {nextLabel}
             </Button>
           </div>
         </div>

@@ -182,11 +182,11 @@ for (const w of WIDTHS) {
       if (info) {
         const steps = Math.min(3, Math.ceil(info.sh / info.ch) - 1);
         for (let i = 1; i <= steps; i++) {
-          await page.evaluate(([k, ch]) => { document.querySelector("[data-audit-scroller]").scrollTop = k * ch * 0.92; }, [i, info.ch]);
+          await page.evaluate(([k, ch]) => { const el = document.querySelector("[data-audit-scroller]"); if (el) el.scrollTop = k * ch * 0.92; }, [i, info.ch]);
           await page.waitForTimeout(150);
           await shot(page, path.join(OUT, theme, `${base}__s${i}.${ext}`));
         }
-        await page.evaluate(() => { document.querySelector("[data-audit-scroller]").scrollTop = 0; });
+        await page.evaluate(() => { const el = document.querySelector("[data-audit-scroller]"); if (el) el.scrollTop = 0; }); // the box can re-render away mid-capture
       }
       const row = { role: ROLE, path: p, width: w, theme, crashed, errors: [...errs], scrollable: info ? `${info.sh}/${info.ch}` : null, ...(await page.evaluate(CHECKS)), axe: await runAxe(page) };
       if (w === DESKTOP && theme === THEMES[0]) {

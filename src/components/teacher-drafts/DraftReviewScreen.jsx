@@ -1,8 +1,8 @@
-import { AlertTriangle, ArrowLeft, Eye, Lock, Save, FileEdit, CheckCircle2, Clock, Users } from "lucide-react";
+import { AlertTriangle, Eye, Lock, Save } from "lucide-react";
 import { useState } from "react";
-import { QuestionEditor } from "./QuestionEditor";
+import { QuestionEditor, QuestionView } from "./QuestionEditor";
 import { SwapQuestionModal } from "./SwapQuestionModal";
-import { Bento, MetricCard, SectionHeader } from "@/components/common";
+import { PageHeader, SectionHeader } from "@/components/common";
 import { useToast } from "@/context/useToast";
 import { AutoSaveIndicator } from "@/components/take-test/AutoSaveIndicator";
 import { createId } from "@/lib/id";
@@ -22,7 +22,7 @@ export const DraftReviewScreen = ({
   onPreview,
   onSave,
   saveState,
-  backLabel = "← Back to drafts",
+  backLabel = "Back to tests",
   heading = "Review the draft",
   crumbLabel = "Review draft",
   scope = "",
@@ -30,6 +30,7 @@ export const DraftReviewScreen = ({
   readOnly = false,
   lockReason = "Read-only — students have already been given this test.",
   lockSummary = "This test is no longer a draft, so it can't be edited.",
+  lockedActions = [],
 }) => {
   const toast = useToast();
   const [swapIndex, setSwapIndex] = useState(null);
@@ -60,127 +61,73 @@ export const DraftReviewScreen = ({
     onQuestionsChange(copy);
   };
 
+  const issueAt = new Set(issues.filter((i) => i.index >= 0).map((i) => i.index));
+  const jump = (i) => document.getElementById(`q-${i + 1}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const summary = `${questions.length} ${questions.length === 1 ? "question" : "questions"} · ${totalMarks} marks · ${config.duration} min · ${config.mode === "personal" ? "a version per student" : "the same paper for the whole class"}.`;
+
+  const editActions = (
+    <>
+      {saveState && <AutoSaveIndicator state={saveState} errorText="Couldn't save, retrying. Your edits are kept on this page." />}
+      {onPreview && (
+        <Button onClick={onPreview} variant="outline">
+          <Eye size={13} aria-hidden="true" /> Preview
+        </Button>
+      )}
+      {onSave && (
+        <Button onClick={() => onSave()} variant="outline">
+          <Save size={13} aria-hidden="true" /> Save draft
+        </Button>
+      )}
+      {onPublish && <Button onClick={onPublish}>Publish</Button>}
+    </>
+  );
+  const readActions = (
+    <>
+      {onPreview && (
+        <Button onClick={onPreview} variant="outline">
+          <Eye size={13} aria-hidden="true" /> Preview
+        </Button>
+      )}
+      {lockedActions.map((a) => (
+        <Button key={a.id} onClick={a.onClick} variant={a.primary ? "default" : "outline"}>
+          {a.label}
+        </Button>
+      ))}
+    </>
+  );
+
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <Button
-        onClick={onBack} variant="ghost" size="sm" className="mb-3"
-      >
-        <ArrowLeft size={13} />
-        {backLabel.replace("← ", "")}
-      </Button>
-
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        {scope && <>{scope} <span className="text-ink-3">/</span> </>}Drafts{" "}
-        <span className="text-ink-3">/</span> {crumbLabel}
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            {title && heading === "Review the draft" ? title : heading}
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            {questions.length} questions · {totalMarks} marks ·{" "}
-            {config.duration} min.{" "}
+      <PageHeader
+        crumbs={[...(scope ? [{ label: scope }] : []), { label: "Tests", to: "/teacher/drafts" }, { label: title || crumbLabel }]}
+        title={title && heading === "Review the draft" ? title : heading}
+        intro={
+          <>
+            {summary}{" "}
             {webCount > 0 && (
               <span className="font-medium text-warning">
-                {webCount} {webCount === 1 ? "question uses" : "questions use"} a web source — check {webCount === 1 ? "it" : "them"}.{" "}
+                {webCount} {webCount === 1 ? "question uses" : "questions use"} a web source: check {webCount === 1 ? "it" : "them"}.{" "}
               </span>
             )}
-            {readOnly
-              ? lockSummary
-              : "Edit any question, answer, or mark. Mark the correct option on each multiple choice so auto-grading knows what to look for."}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {saveState && (
-            <AutoSaveIndicator
-              state={saveState}
-              errorText="Couldn't save — retrying. Your edits are kept on this page."
-            />
-          )}
-          {onPreview && (
-            <Button
-              onClick={onPreview} variant="outline"
-            >
-              <Eye size={13} /> Preview
-            </Button>
-          )}
-          {onSave && (
-            <Button
-              onClick={() => onSave()} variant="outline"
-            >
-              <Save size={13} /> Save draft
-            </Button>
-          )}
-          {onPublish && (
-            <Button
-              onClick={onPublish}
-            >
-              Publish
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* KPI bento row */}
-      <div className="bento mb-10">
-        <MetricCard
-          icon={FileEdit}
-          iconTone="primary"
-          label="Questions"
-          value={questions.length}
-          delta="Ready to review"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="success"
-          label="Total marks"
-          value={totalMarks}
-          delta={config.mode === "personal" ? "Per variant" : "For the class"}
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Clock}
-          iconTone="warning"
-          label="Duration"
-          value={config.duration}
-          unit="min"
-          delta="Time limit"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Users}
-          iconTone={config.mode === "personal" ? "primary" : "neutral"}
-          label="Mode"
-          value={config.mode === "personal" ? "Per student" : "Whole class"}
-          delta={
-            config.mode === "personal"
-              ? "Personalized variants"
-              : "Single shared test"
-          }
-          deltaTone="success"
-        />
-      </div>
+            {readOnly ? lockSummary : "Edit any question, answer or mark. Mark the correct option on each multiple choice so auto-grading knows what to look for."}
+          </>
+        }
+        actions={readOnly ? readActions : editActions}
+      />
 
       <section className="mb-10">
-        <SectionHeader label={readOnly ? "Questions" : "Questions · click any field to edit"} />
+        <SectionHeader label="Questions" />
         {readOnly && (
-          <div className="mb-4 flex items-center gap-2 rounded-[var(--radius-control)] border border-rule-2 bg-raised px-4 py-3 text-[13px] text-ink-2">
-            <Lock size={14} className="shrink-0 text-ink-3" />
+          <div className="mb-4 flex items-start gap-2 rounded-[var(--radius-control)] border border-rule-2 bg-raised px-4 py-3 text-[13px] text-ink-2">
+            <Lock size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-3" />
             {lockReason}
           </div>
         )}
         {!readOnly && issues.length > 0 && (
-          <div
-            role="status"
-            className="mb-4 flex items-start gap-2 rounded-[var(--radius-control)] border border-warning/25 bg-warning-dim px-4 py-3 text-[13px] text-warning"
-          >
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <div role="status" className="mb-4 flex items-start gap-2 rounded-[var(--radius-control)] border border-warning/25 bg-warning-dim px-4 py-3 text-[13px] text-warning">
+            <AlertTriangle size={14} aria-hidden="true" className="mt-0.5 shrink-0" />
             <span>
-              {issues.length} {issues.length === 1 ? "issue" : "issues"} to fix before
-              publishing:{" "}
+              {issues.length} {issues.length === 1 ? "issue" : "issues"} to fix before publishing:{" "}
               {issues
                 .slice(0, 3)
                 .map((i) => (i.index >= 0 ? `Q${i.index + 1} ${i.message}` : i.message))
@@ -189,11 +136,32 @@ export const DraftReviewScreen = ({
             </span>
           </div>
         )}
-        {/* A disabled fieldset switches off every input and button inside it,
-            which is all read-only mode needs. */}
-        <fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0">
-          <div className="flex flex-col gap-3.5">
+
+        {/* Question index: jump straight to Q9 on a long paper; questions with problems are marked. */}
+        {questions.length > 4 && (
+          <nav aria-label="Jump to a question" className="mb-4 flex flex-wrap gap-1.5">
             {questions.map((q, i) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => jump(i)}
+                aria-label={`Question ${i + 1}${issueAt.has(i) ? " (needs a fix)" : ""}`}
+                className={
+                  "grid size-9 place-items-center rounded-[var(--radius-control)] border text-[12.5px] font-semibold tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 " +
+                  (issueAt.has(i) ? "border-warning/50 bg-warning-dim text-warning" : "border-rule-2 bg-surface text-ink-2 hover:border-rule-3 hover:text-ink")
+                }
+              >
+                {i + 1}
+              </button>
+            ))}
+          </nav>
+        )}
+
+        <div className="flex flex-col gap-3.5">
+          {questions.map((q, i) =>
+            readOnly ? (
+              <QuestionView key={q.id} q={q} index={i} />
+            ) : (
               <QuestionEditor
                 key={q.id}
                 q={q}
@@ -203,45 +171,37 @@ export const DraftReviewScreen = ({
                 onDelete={remove}
                 onDuplicate={duplicate}
                 onMove={move}
-                onSwap={subjectId && !readOnly ? setSwapIndex : undefined}
+                onSwap={subjectId ? setSwapIndex : undefined}
               />
-            ))}
-          </div>
-        </fieldset>
-      </section>
-
-      {/* Actions bar */}
-      <Bento className="flex-row flex-wrap items-center justify-between gap-3 !py-4">
-        <Button
-          onClick={onBack} variant="ghost"
-        >
-          <ArrowLeft size={13} />
-          {backLabel.replace("← ", "")}
-        </Button>
-        <div className="flex flex-wrap gap-2">
-          {onPreview && (
-            <Button
-              onClick={onPreview} variant="outline"
-            >
-              Preview as student
-            </Button>
-          )}
-          {onSave && (
-            <Button
-              onClick={() => onSave()} variant="outline"
-            >
-              Save draft
-            </Button>
-          )}
-          {onPublish && (
-            <Button
-              onClick={onPublish}
-            >
-              Publish test
-            </Button>
+            ),
           )}
         </div>
-      </Bento>
+      </section>
+
+      {/* Sticky action bar: Save and Publish stay in reach on a long paper. */}
+      <div className="no-print sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-bento)] border border-rule bg-surface/95 px-4 py-3 shadow-[var(--shadow-raised)] backdrop-blur-sm max-narrow:px-3 max-narrow:py-2.5">
+        {/* Phones: one compact row (Save + Publish); Back and Preview are in the header. */}
+        <Button onClick={onBack} variant="ghost" className="max-narrow:hidden">
+          {backLabel}
+        </Button>
+        <div className="flex flex-wrap gap-2 max-narrow:w-full max-narrow:flex-nowrap max-narrow:[&>*]:flex-1">
+          {readOnly ? readActions : (
+            <>
+              {onPreview && (
+                <Button onClick={onPreview} variant="outline" className="max-narrow:hidden">
+                  Preview as student
+                </Button>
+              )}
+              {onSave && (
+                <Button onClick={() => onSave()} variant="outline">
+                  Save draft
+                </Button>
+              )}
+              {onPublish && <Button onClick={onPublish}>Publish test</Button>}
+            </>
+          )}
+        </div>
+      </div>
 
       <SwapQuestionModal
         open={swapIndex !== null}

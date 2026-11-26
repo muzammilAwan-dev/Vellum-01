@@ -73,16 +73,17 @@ export const StudentHistory = ({ studentId, studentName }) => {
 
   const summary = data?.summary;
   return (
-    <section className="mb-14" aria-labelledby="history-heading">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div id="history-heading">
-          <SectionHeader label="Test history · all subjects" />
-        </div>
-        <Button variant="outline" size="sm" className="no-print mb-3" onClick={exportCsv} disabled={!data || data.rows.length === 0}>
-          <Download size={13} />
-          Export CSV
-        </Button>
-      </div>
+    <section className="mb-14">
+      <SectionHeader
+        label="Test history"
+        meta="all subjects"
+        aside={
+          <Button variant="outline" size="sm" className="no-print" onClick={exportCsv} disabled={!data || data.rows.length === 0}>
+            <Download size={13} aria-hidden="true" />
+            Export CSV
+          </Button>
+        }
+      />
 
       <div className="no-print mb-4 grid gap-3 narrow:grid-cols-2 tablet:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         <Select
@@ -91,14 +92,22 @@ export const StudentHistory = ({ studentId, studentName }) => {
           onChange={setSubject}
           options={[{ value: "", label: "All subjects" }, ...subjects.map((s) => ({ value: s.id, label: s.name }))]}
         />
-        <div className="flex items-center gap-2">
-          <input type="date" aria-label="From date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
-          <span className="text-ink-3">–</span>
-          <input type="date" aria-label="To date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={inputClass} />
+        {/* Visible From / To labels (not just a dash), each field its own column on phones. */}
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex min-w-0 flex-col gap-1 text-[12px] font-medium text-ink-3">
+            From
+            <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-[12px] font-medium text-ink-3">
+            To
+            <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={inputClass} />
+          </label>
         </div>
-        <Button variant="ghost" onClick={clear} disabled={!dirty}>
-          Clear
-        </Button>
+        {dirty && (
+          <Button variant="ghost" onClick={clear} className="self-end">
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {error ? (
@@ -133,15 +142,15 @@ export const StudentHistory = ({ studentId, studentName }) => {
             )}
             {summary.pending > 0 && <span className="text-ink-3">{` · ${summary.pending} still being marked, not counted`}</span>}
           </p>
-          <TableShell>
+          <TableShell stack label="Test history">
             <thead>
               <tr className="border-b border-rule-2">
                 <Th>Test</Th>
-                <Th className="max-tablet:hidden">Subject</Th>
-                <Th className="max-narrow:hidden">Date</Th>
+                <Th className="max-xl:hidden">Subject</Th>
+                <Th hideMid>Date</Th>
                 <Th className="text-right">Score</Th>
-                <Th className="text-right max-tablet:hidden">Class avg</Th>
-                <Th className="text-right max-tablet:hidden">Time</Th>
+                <Th className="text-right max-xl:hidden">Class avg</Th>
+                <Th className="text-right max-xl:hidden">Time</Th>
                 <Th className="text-right">Flags</Th>
                 <Th>Result</Th>
               </tr>
@@ -153,20 +162,22 @@ export const StudentHistory = ({ studentId, studentName }) => {
                   <tr key={r.id} className="border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50">
                     <Td className="text-[13.5px] font-medium text-ink">
                       {r.test}
-                      <span className="block text-[12px] font-normal text-ink-3 tablet:hidden">{r.subject}</span>
+                      <span className="block text-[12px] font-normal text-ink-3 xl:hidden">{r.subject}</span>
                     </Td>
-                    <Td className="max-tablet:hidden">{r.subject}</Td>
-                    <Td className="whitespace-nowrap font-mono text-[12px] max-narrow:hidden">{formatDateTime(r.at)}</Td>
-                    <Td className="whitespace-nowrap text-right font-mono tabular-nums text-ink">
-                      {r.status === "pending" ? "—" : `${r.marks} / ${r.max}`}
-                      {r.percent != null && <span className="ml-1.5 text-ink-3">{r.percent}%</span>}
+                    <Td hidePhone className="max-xl:hidden">{r.subject}</Td>
+                    <Td label="Date" hideMid className="whitespace-nowrap font-mono text-[12px]">{formatDateTime(r.at)}</Td>
+                    <Td label="Score" className="whitespace-nowrap text-right font-mono tabular-nums text-ink">
+                      <span>
+                        {r.status === "pending" ? "—" : `${r.marks} / ${r.max}`}
+                        {r.percent != null && <span className="ml-1.5 text-ink-3">{r.percent}%</span>}
+                      </span>
                     </Td>
-                    <Td className="text-right font-mono tabular-nums max-tablet:hidden">{r.classAverage != null ? `${r.classAverage}%` : "—"}</Td>
-                    <Td className="whitespace-nowrap text-right font-mono tabular-nums max-tablet:hidden">{formatDuration(r.timeTakenSec)}</Td>
-                    <Td className="text-right font-mono">
+                    <Td label="Class average" className="text-right font-mono tabular-nums max-xl:hidden">{r.classAverage != null ? `${r.classAverage}%` : "—"}</Td>
+                    <Td label="Time" hidePhone className="whitespace-nowrap text-right font-mono tabular-nums max-xl:hidden">{formatDuration(r.timeTakenSec)}</Td>
+                    <Td label="Flags" className="text-right font-mono">
                       <FlagChips flags={r.flags} />
                     </Td>
-                    <Td>
+                    <Td label="Result">
                       <StatusDot tone={tone}>{label}</StatusDot>
                     </Td>
                   </tr>

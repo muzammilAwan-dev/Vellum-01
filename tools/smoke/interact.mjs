@@ -222,13 +222,13 @@ check("parent messages: admins do not see the section", !/Parent messages/.test(
 // ── F12d: share dialog + send queue ──
 await mount("teacher", "/teacher/analytics", true);
 await page.waitForTimeout(1500);
-check("share: class table offers Share with parents (whole class)", /Share with parents · whole class/.test(await text()));
-await page.getByRole("button", { name: /Share with parents · whole class/ }).click(); await page.waitForTimeout(600);
+check("share: analytics offers Send parent reports (whole class)", /Send parent reports/.test(await text()));
+await page.getByRole("button", { name: /Send parent reports/ }).click(); await page.waitForTimeout(600);
 check("share: dialog shows who, type and both actions", /Share report/.test(await text()) && /Whole class/.test(await text()) && await page.getByRole("button", { name: "Save PDF" }).isVisible() && await page.getByRole("button", { name: "Send on WhatsApp" }).isVisible());
 await page.getByRole("button", { name: "One test", exact: true }).click(); await page.waitForTimeout(300);
 await page.evaluate(() => { window.__opened = []; window.open = (...a) => { window.__opened.push(a); return null; }; });
 await page.getByRole("button", { name: "Send on WhatsApp" }).click(); await page.waitForTimeout(2500);
-check("share: queue opens with progress and the WhatsApp notice", /Send on WhatsApp/.test(await text()) && /0 of \d+ opened/.test(await text()) && /never post reports in a group/.test(await text()), (await text()).slice(0, 160));
+check("share: queue opens with progress and the WhatsApp notice", /Send reports on WhatsApp/.test(await text()) && /0 of \d+ opened/.test(await text()) && /never post reports in a group/.test(await text()), (await text()).slice(0, 160));
 check("share: students without a number get Add number", (await page.getByRole("button", { name: "Add number" }).count()) > 0);
 await page.getByRole("button", { name: "Add number" }).first().click(); await page.waitForTimeout(500);
 await page.getByRole("button", { name: "Add contact" }).first().click(); await page.waitForTimeout(300);

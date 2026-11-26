@@ -41,17 +41,15 @@ export const ClassSwitcher = ({ classes, activeId, onChange }) => {
       >
         <span className="col-start-1 row-start-1 truncate text-[12px] font-semibold text-sidebar-accent">
           {active ? `Class ${active.short}` : "Class"}
+          <span className="font-normal text-sidebar-ink-3"> · {active?.students || 0} students</span>
         </span>
         <span className="col-start-1 row-start-2 truncate text-[13.5px] font-semibold tracking-tight text-sidebar-ink">
           {active?.name || "Select class"}
         </span>
-        <span className="col-start-1 row-start-3 truncate font-mono text-[12px] text-sidebar-ink-3">
-          {active?.students || 0} students
-        </span>
         <ChevronDown
           size={16}
           className={cn(
-            "col-start-2 row-span-3 self-center text-sidebar-ink-2 transition-transform",
+            "col-start-2 row-span-2 row-start-1 self-center text-sidebar-ink-2 transition-transform",
             open && "rotate-180"
           )}
         />

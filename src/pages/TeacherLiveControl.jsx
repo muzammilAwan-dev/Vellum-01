@@ -1,21 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Radio, Users, Flag, Clock, StopCircle } from "lucide-react";
+import { Clock, StopCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 import { extendTest, stopTestNow } from "@/api/tests";
 import {
   Bento,
-  Conn,
   EmptyState,
-  MetricCard,
   PageError,
+  PageHeader,
   PageLoading,
+  Scope,
   SectionHeader,
   StatusDot,
   TableShell,
   Td,
   Th,
 } from "@/components/common";
-import { NumberStepper } from "@/components/teacher-live-control/NumberStepper";
+import { NumberStepper } from "@/components/common/NumberStepper";
 import { useApp } from "@/context/useApp";
 import { useToast } from "@/context/useToast";
 import { useTestRoster } from "@/hooks/useAttempts";
@@ -105,85 +105,71 @@ const LiveTestView = ({ test }) => {
     }
   };
 
+  // One honest sentence built from the numbers (never "students are working" when nobody is).
+  const sentence = ended
+    ? `This test has ended. ${done} of ${rows.length} submitted.`
+    : working === 0 && done === 0
+      ? `Nobody has started yet: ${waiting} of ${rows.length} students haven't opened it.`
+      : `${working} working, ${done} submitted, ${waiting} not started.`;
+  const statusTone = (r) =>
+    r.status === "submitted" ? "success" : r.status === "working" ? "live" : r.status === "submitting" ? "warning" : r.status === "silent" ? "danger" : "muted";
+  const STATUS_TEXT = { submitted: "Submitted", working: "Working", submitting: "Submitting…", silent: "No signal", waiting: "Not started" };
+
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      {running && (
-        <div className="hero-glow gradient-border relative mb-6 flex flex-wrap items-center gap-3 rounded-[var(--radius-bento)] border border-primary/30 bg-gradient-to-r from-primary-soft to-transparent px-5 py-3.5 shadow-[var(--shadow-card)]">
-          <span className="relative z-10 grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-on-primary shadow-[var(--shadow-primary)]">
-            <Radio size={15} />
-          </span>
-          <span className="relative z-10 inline-flex items-center gap-2 text-[12px] font-semibold text-primary">
-            <span className="size-1.5 animate-beacon rounded-full bg-primary shadow-[0_0_8px_var(--color-primary)]" />
-            Test is live
-          </span>
-          <span className="relative z-10 text-[13px] text-ink-2">
-            {working} working · {done} submitted ·{" "}
-            {minutesLeft != null ? `${minutesLeft} min until it closes` : "open until you stop it"}
-          </span>
-          <span className="relative z-10 ml-auto">
-            <Conn state="live" secs={20} />
-          </span>
+      <PageHeader
+        crumbs={[{ label: `${test.subject} · ${test.cls}` }, { label: "Live test" }]}
+        title={test.title}
+        titleNote={running ? <StatusDot tone="live">Live</StatusDot> : <StatusDot tone="muted">Ended</StatusDot>}
+        intro={
+          <>
+            {sentence} Results: {RELEASE_LABELS[settings.release].toLowerCase()} · {settings.aiGrading ? "AI drafts written marks" : "written answers graded by hand"}.
+          </>
+        }
+      />
+
+      {/* The controls that matter sit right under the title, before the roster (sticky on phones). */}
+      {running ? (
+        <section
+          aria-label="Test controls"
+          className="sticky top-[72px] z-10 mb-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[var(--radius-bento)] border border-primary/25 bg-surface/95 px-4 py-3 shadow-[var(--shadow-raised)] backdrop-blur-sm"
+        >
+          <div className="flex min-w-0 items-center gap-2 text-[13.5px] font-medium text-ink">
+            <Clock size={15} aria-hidden="true" className="shrink-0 text-primary" />
+            <span aria-live="polite">
+              {minutesLeft != null ? `${minutesLeft} min left · closes ${formatDateTime(closes)}` : "No end time: open until you stop it"}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 tablet:ml-auto">
+            <NumberStepper value={extendBy} onChange={setExtendBy} min={1} max={60} suffix="min" label="Minutes to add" />
+            <Button onClick={extend} variant="outline">
+              Extend
+            </Button>
+            <Button onClick={stop} disabled={stopping} variant="destructive">
+              <StopCircle size={14} aria-hidden="true" />
+              {stopping ? "Stopping…" : "Stop for everyone"}
+            </Button>
+          </div>
+        </section>
+      ) : (
+        <div className="mb-6 flex flex-wrap gap-2 max-narrow:[&>*]:flex-auto">
+          <Button onClick={() => navigate(`/teacher/results/${test.id}`)}>View results</Button>
+          <Button onClick={() => navigate("/teacher/review")} variant="outline">
+            Review marks
+          </Button>
+          <Button onClick={() => navigate("/teacher/drafts")} variant="outline">
+            Back to tests
+          </Button>
         </div>
       )}
 
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        {test.subject} · {test.cls} <span className="text-ink-3">/</span> Live test
-      </div>
-
-      <div className="mb-8 min-w-0">
-        <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">
-          {test.title}
-        </h1>
-        <p className="mt-2 text-[14px] text-ink-2">
-          {running
-            ? "Students are working. You can extend or stop at any time."
-            : "This test has ended."}
-          {" "}
-          Results: {RELEASE_LABELS[settings.release].toLowerCase()} ·{" "}
-          {settings.aiGrading ? "AI drafts written marks" : "written answers graded by hand"}
-        </p>
-      </div>
-
-      <div className="bento mb-8">
-        <MetricCard
-          icon={Users}
-          iconTone={working > 0 ? "primary" : "neutral"}
-          label="Working now"
-          value={working}
-          unit={`/ ${rows.length}`}
-          delta="In the test"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Users}
-          iconTone="success"
-          label="Submitted"
-          value={done}
-          delta="Answers received"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Flag}
-          iconTone={flagged > 0 ? "danger" : "neutral"}
-          label="Flagged"
-          value={flagged}
-          delta="Tab switches detected"
-          deltaTone={flagged > 0 ? "danger" : "success"}
-        />
-        <MetricCard
-          icon={Clock}
-          iconTone="warning"
-          label={minutesLeft != null ? "Closes in" : "Not started"}
-          value={minutesLeft != null ? minutesLeft : waiting}
-          unit={minutesLeft != null ? "min" : `/ ${rows.length}`}
-          delta={closes ? formatDateTime(closes) : "Haven't opened it yet"}
-          deltaTone="success"
-        />
-      </div>
-
       <section className="mb-8">
-        <SectionHeader label="Live roster" meta="refreshes as students work" />
-        <TableShell>
+        <SectionHeader
+          label="Class roster"
+          meta={`${rows.length} students · refreshes every 20 s`}
+          aside={flagged > 0 ? <span className="text-[12.5px] font-medium text-warning">{flagged} with flagged events</span> : null}
+        />
+        <TableShell stack label="Class roster">
           <thead>
             <tr className="border-b border-rule-2">
               <Th>Student</Th>
@@ -194,99 +180,53 @@ const LiveTestView = ({ test }) => {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr
-                key={r.name}
-                className="border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50"
-              >
+              <tr key={r.name} className="border-b border-rule transition-colors last:border-b-0 hover:bg-raised/50">
                 <Td className="text-[13.5px] font-medium text-ink">{r.name}</Td>
-                <Td className="text-right font-mono tabular-nums">
+                <Td label="Progress" hidePhone={r.total === 0} className="text-right font-mono tabular-nums">
                   {r.total > 0 ? (
                     <div className="ml-auto flex items-center justify-end gap-2">
-                      <span className="h-1 w-16 overflow-hidden rounded-full bg-rule">
-                        <span
-                          className="block h-full rounded-full bg-gradient-to-r from-primary to-primary-2"
-                          style={{ width: `${(r.answered / r.total) * 100}%` }}
-                        />
+                      <span aria-hidden="true" className="h-1 w-16 overflow-hidden rounded-full bg-rule">
+                        <span className="block h-full rounded-full bg-gradient-to-r from-primary to-primary-2" style={{ width: `${(r.answered / r.total) * 100}%` }} />
                       </span>
                       <span>
                         {r.answered}/{r.total}
+                        <span className="sr-only"> answered</span>
                       </span>
                     </div>
                   ) : (
-                    "—"
+                    <span aria-label="Nothing answered yet">—</span>
                   )}
                 </Td>
-                <Td>
-                  <StatusDot
-                    tone={
-                      r.status === "submitted"
-                        ? "success"
-                        : r.status === "working"
-                          ? "primary"
-                          : r.status === "submitting"
-                            ? "warning"
-                            : r.status === "silent"
-                              ? "danger"
-                              : "muted"
-                    }
-                  >
-                    {
-                      {
-                        submitted: "Submitted",
-                        working: "Working",
-                        submitting: "Submitting…",
-                        silent: "No signal",
-                        waiting: "Not started",
-                      }[r.status]
-                    }
-                  </StatusDot>
+                <Td label="Status">
+                  <StatusDot tone={statusTone(r)}>{STATUS_TEXT[r.status]}</StatusDot>
                 </Td>
-                <Td className="text-right font-mono">
+                <Td label="Flags" hidePhone={!r.flags} className="text-right font-mono">
                   {r.flags ? (
-                    <span
-                      title={r.lastFlag ? `Last: ${formatDateTime(r.lastFlag)}` : undefined}
-                      className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning"
-                    >
+                    <span title={r.lastFlag ? `Last: ${formatDateTime(r.lastFlag)}` : undefined} className="whitespace-nowrap rounded-full bg-warning-dim px-2 py-0.5 text-[12px] font-semibold text-warning">
                       {r.flags}
+                      <span className="sr-only"> {r.flags === 1 ? "flag" : "flags"}</span>
                     </span>
                   ) : (
-                    "—"
+                    <span aria-label="No flags">—</span>
                   )}
                 </Td>
               </tr>
             ))}
           </tbody>
         </TableShell>
+        {running && <p className="mt-3 text-[12.5px] text-ink-3">Students submit automatically when their time runs out. "No signal" means the browser stopped checking in for over a minute: a clue, not proof.</p>}
       </section>
-
-      {running ? (
-        <Bento className="flex-row flex-wrap items-center gap-3 !py-4">
-          <Button onClick={stop} disabled={stopping} variant="destructive">
-            <StopCircle size={14} />
-            {stopping ? "Stopping…" : "Stop test for everyone"}
-          </Button>
-          <NumberStepper value={extendBy} onChange={setExtendBy} min={1} max={60} suffix="min" />
-          <Button onClick={extend} variant="outline">
-            Extend
-          </Button>
-          <span className="ml-auto hidden text-[13px] font-medium text-ink-3 narrow:inline">
-            Students submit automatically when their time runs out
-          </span>
-        </Bento>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate(`/teacher/results/${test.id}`)}>View results →</Button>
-          <Button onClick={() => navigate("/teacher/review")} variant="outline">
-            Review submissions
-          </Button>
-          <Button onClick={() => navigate("/teacher/drafts")} variant="outline">
-            Back to tests
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
+
+// The page frame + h1 for the states without a single test (none live, several, not found).
+const LivePageShell = ({ intro, children }) => (
+  <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
+    <PageHeader crumbs={[{ label: <Scope /> }, { label: "Live test" }]} title="Live test" intro={intro} />
+    {children}
+  </div>
+);
 
 const TeacherLiveControl = () => {
   const navigate = useNavigate();
@@ -304,6 +244,7 @@ const TeacherLiveControl = () => {
       return <LiveTestView key={test.id} test={test} />;
     }
     return (
+      <LivePageShell>
       <EmptyState
         title={test ? "This test isn't live" : "Test not found"}
         body={
@@ -314,6 +255,7 @@ const TeacherLiveControl = () => {
         action="Back to tests"
         onAction={() => navigate("/teacher/drafts")}
       />
+      </LivePageShell>
     );
   }
 
@@ -321,21 +263,19 @@ const TeacherLiveControl = () => {
 
   if (liveTests.length === 0) {
     return (
+      <LivePageShell>
       <EmptyState
         title="No test is live right now"
         body="Publish a test, or start a scheduled one early, and you can monitor it here."
         action="Go to tests"
         onAction={() => navigate("/teacher/drafts")}
       />
+      </LivePageShell>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <h1 className="mb-2 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink tablet:text-[34px]">
-        Live tests
-      </h1>
-      <p className="mb-6 text-[14px] text-ink-2">More than one test is open. Pick one to monitor.</p>
+    <LivePageShell intro="More than one test is open. Pick one to monitor.">
       <Bento>
         <ul>
           {liveTests.map((t) => (
@@ -354,7 +294,7 @@ const TeacherLiveControl = () => {
           ))}
         </ul>
       </Bento>
-    </div>
+    </LivePageShell>
   );
 };
 

@@ -6,6 +6,7 @@ import { DraftReviewScreen } from "@/components/teacher-drafts/DraftReviewScreen
 import { VariantsReviewScreen } from "@/components/teacher-drafts/VariantsReviewScreen";
 import { PublishTestModal } from "@/components/teacher-drafts/PublishTestModal";
 import { useToast } from "@/context/useToast";
+import { duplicateTest } from "@/api/tests";
 import { useDraftAutosave } from "@/hooks/useDraftAutosave";
 import { useGeneration } from "@/hooks/useGeneration";
 import { useTest } from "@/hooks/useTests";
@@ -49,7 +50,7 @@ const TeacherDraftReview = () => {
       <EmptyState
         title="Test not found"
         body="It may have been deleted, or the link is out of date."
-        action="Back to drafts"
+        action="Back to tests"
         onAction={() => navigate("/teacher/drafts")}
       />
     );
@@ -78,7 +79,28 @@ const TeacherDraftReview = () => {
     );
   const askPublish = () => (generating ? undefined : afterSaving(() => setPublishOpen(true)));
 
+  // A published test is read-only; these are what a teacher can still do with it.
+  const copyAsDraft = async () => {
+    try {
+      const copy = await duplicateTest(test.id);
+      toast.push(`Copied as a new draft: "${copy?.title ?? `${test.title} (copy)`}"`, "success");
+      navigate(copy?.id ?? copy?._id ? `/teacher/drafts/${copy.id ?? copy._id}` : "/teacher/drafts");
+    } catch (err) {
+      toast.push(err?.message || "Couldn't copy the test, try again", "error");
+    }
+  };
+  const lockedActions =
+    readOnly && !generating
+      ? [
+          ...(loaded.status === "live" ? [{ id: "live", label: "Live control", primary: true, onClick: () => navigate(`/teacher/live?test=${test.id}`) }] : []),
+          { id: "results", label: "Results", primary: loaded.status === "completed", onClick: () => navigate(`/teacher/results/${test.id}`) },
+          { id: "copy", label: "Copy as new draft", onClick: copyAsDraft },
+        ]
+      : [];
+
   const shared = {
+    lockedActions,
+    status: loaded.status,
     config,
     subjectId: test.subjectId,
     scope,
@@ -93,7 +115,7 @@ const TeacherDraftReview = () => {
       : {}),
     saveState: readOnly ? undefined : saveState,
     onBack: toList,
-    backLabel: "← Back to drafts",
+    backLabel: "Back to tests",
     onPublish: readOnly ? undefined : askPublish,
   };
 

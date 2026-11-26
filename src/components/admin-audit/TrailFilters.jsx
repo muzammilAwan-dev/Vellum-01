@@ -19,7 +19,7 @@ export const TrailFilters = ({ filter, onFilter, query, onQuery, counts }) => (
       {TRAIL_FILTERS.map((f) => (
         <Chip key={f.id} active={filter === f.id} onClick={() => onFilter(f.id)}>
           {f.label}
-          <span className="ml-1.5 tabular-nums opacity-70">{counts[f.id]}</span>
+          <span className="ml-1.5 tabular-nums">{counts[f.id]}</span>
         </Chip>
       ))}
     </ChipRow>

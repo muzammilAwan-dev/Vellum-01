@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, FileEdit, Clock, Radio, CheckCircle2, Search as SearchIcon } from "lucide-react";
-import { Chip, ChipRow, EmptyState, MetricCard, StatusDot, Scope, Td, Th } from "@/components/common";
+import { Plus } from "lucide-react";
+import { Chip, ChipRow, EmptyState, PageHeader, Scope, SearchField, StatusDot, Td, Th } from "@/components/common";
 import { useApp } from "@/context/useApp";
 import { Button } from "@/components/ui/button";
 import { ActionMenu } from "@/components/ui/menu";
@@ -12,7 +12,7 @@ import { STATUSES, STATUS_LABEL, STATUS_NOUN, rowPlan, statusCounts, statusNote 
 // One main button per row (what you most likely do next) and a "more" menu for
 // the rest, so every row is one line tall and Delete never looks like Open.
 // ═══════════════════════════════════════════════════════════════
-const STATUS_TONE = { draft: "muted", scheduled: "primary", live: "danger", completed: "success" };
+const STATUS_TONE = { draft: "muted", scheduled: "primary", live: "live", completed: "success" };
 
 export const DraftsList = ({
   drafts,
@@ -114,79 +114,25 @@ export const DraftsList = ({
 
   return (
     <div className="mx-auto max-w-[1360px] px-5 py-6 tablet:px-10 tablet:py-8">
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Tests
-      </div>
+      <PageHeader
+        crumbs={[{ label: <Scope /> }, { label: "Tests" }]}
+        title="Tests"
+        intro="Every test you've drafted, scheduled or run. Publish a draft, open one to edit it, or check the results once it closes."
+        actions={
+          <Button onClick={onNew}>
+            <Plus size={14} aria-hidden="true" /> New test
+          </Button>
+        }
+      />
 
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink tablet:text-[34px]">
-            Tests
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            Every test you've drafted, scheduled or run. Publish a draft, open one to edit it, or check the
-            results once it closes.
-          </p>
-        </div>
-        <Button onClick={onNew}>
-          <Plus size={14} /> New test
-        </Button>
-      </div>
-
-      {/* KPI bento */}
-      <div className="bento mb-10">
-        <MetricCard
-          icon={FileEdit}
-          iconTone="neutral"
-          label="Drafts"
-          value={counts.draft}
-          delta="Awaiting publish"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Clock}
-          iconTone="primary"
-          label="Scheduled"
-          value={counts.scheduled}
-          delta="Opening soon"
-          deltaTone="success"
-        />
-        <MetricCard
-          icon={Radio}
-          iconTone={counts.live > 0 ? "danger" : "neutral"}
-          label="Live now"
-          value={counts.live}
-          delta={counts.live > 0 ? "Students working" : "None running"}
-          deltaTone={counts.live > 0 ? "danger" : "success"}
-        />
-        <MetricCard
-          icon={CheckCircle2}
-          iconTone="success"
-          label="Completed"
-          value={counts.completed}
-          delta="Graded & released"
-          deltaTone="success"
-        />
-      </div>
-
-      {/* Filters */}
+      {/* Filters: the chips carry the counts (no separate row of tiles saying the same). */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="flex h-10 min-w-[240px] flex-1 items-center gap-2.5 rounded-[var(--radius-control)] border border-rule-2 bg-surface px-3.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 narrow:max-w-[360px]">
-          <SearchIcon size={14} className="shrink-0 text-ink-3" aria-hidden="true" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search tests by title…"
-            aria-label="Search tests by title"
-            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-3"
-          />
-        </label>
+        <SearchField label="Search tests by title" value={search} onChange={setSearch} placeholder="Search tests by title…" className="w-full narrow:w-[300px]" />
         <ChipRow>
           {["all", ...STATUSES].map((f) => (
             <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>
               {f === "all" ? "All" : STATUS_LABEL[f]}
-              <span className="ml-1.5 tabular-nums opacity-70">{counts[f]}</span>
+              <span className="ml-1.5 tabular-nums">{counts[f]}</span>
             </Chip>
           ))}
         </ChipRow>
@@ -209,17 +155,17 @@ export const DraftsList = ({
 
       {/* Table */}
       <div className="overflow-hidden rounded-[var(--radius-container)] border border-rule bg-surface shadow-[var(--shadow-card)]">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40" tabIndex={0} role="region" aria-label="Tests">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-rule-2">
                 <Th>Test</Th>
-                <Th className="max-tablet:hidden">Class</Th>
-                <Th className="text-right max-narrow:hidden">Questions</Th>
-                <Th className="text-right max-tablet:hidden">Marks</Th>
+                <Th className="max-lg:hidden">Class</Th>
+                <Th className="text-right max-lg:hidden">Questions</Th>
+                <Th className="text-right max-lg:hidden">Marks</Th>
                 <Th className="hidden 2xl:table-cell">Source</Th>
-                <Th className="max-narrow:hidden">Status</Th>
-                <Th className="max-tablet:hidden">Last edited</Th>
+                <Th className="max-lg:hidden">Status</Th>
+                <Th className="max-xl:hidden">Last edited</Th>
                 <Th>
                   <span className="sr-only">Actions</span>
                 </Th>
@@ -256,14 +202,14 @@ export const DraftsList = ({
                   >
                     <Td className="text-[13.5px] font-medium text-ink">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               onOpen(d);
                             }}
-                            className="min-w-0 truncate rounded-sm text-left font-medium text-ink hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+                            className="inline-flex min-h-8 min-w-0 items-center rounded-sm text-left font-medium text-ink [overflow-wrap:anywhere] hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
                           >
                             {d.title}
                           </button>
@@ -278,12 +224,13 @@ export const DraftsList = ({
                             Regenerated {d.regeneratedAt}
                           </div>
                         )}
-                        <div className="mt-1.5 font-normal narrow:hidden">{status}</div>
+                        <div className="mt-1.5 font-normal lg:hidden">{status}</div>
+                        <div className="mt-0.5 text-[12px] font-normal text-ink-3 lg:hidden">{d.questions} questions · {d.marks} marks</div>
                       </div>
                     </Td>
-                    <Td className="font-mono text-[12px] max-tablet:hidden">{d.cls}</Td>
-                    <Td className="text-right font-mono tabular-nums max-narrow:hidden">{d.questions}</Td>
-                    <Td className="text-right font-mono tabular-nums max-tablet:hidden">{d.marks}</Td>
+                    <Td className="font-mono text-[12px] max-lg:hidden">{d.cls}</Td>
+                    <Td className="text-right font-mono tabular-nums max-lg:hidden">{d.questions}</Td>
+                    <Td className="text-right font-mono tabular-nums max-lg:hidden">{d.marks}</Td>
                     <Td className="hidden 2xl:table-cell">
                       {d.questionSet?.length > 0 || d.variants?.length > 0 ? (
                         <span className="whitespace-nowrap rounded-full border border-primary/25 bg-primary-dim px-2 py-0.5 text-[12px] font-medium text-primary">
@@ -295,8 +242,8 @@ export const DraftsList = ({
                         </span>
                       )}
                     </Td>
-                    <Td className="max-narrow:hidden">{status}</Td>
-                    <Td className="whitespace-nowrap font-mono text-[12px] text-ink-3 max-tablet:hidden">
+                    <Td className="max-lg:hidden">{status}</Td>
+                    <Td className="whitespace-nowrap font-mono text-[12px] text-ink-3 max-xl:hidden">
                       {d.lastEdited}
                     </Td>
                     <Td className="whitespace-nowrap px-2 text-right narrow:px-4">

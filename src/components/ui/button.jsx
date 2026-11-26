@@ -25,8 +25,9 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Disabled primary = a neutral, readable "not yet" (not a washed-out lavender that looks broken).
         default:
-          "bg-primary text-primary-foreground shadow-[var(--shadow-primary)] hover:bg-primary-2",
+          "bg-primary text-primary-foreground shadow-[var(--shadow-primary)] hover:bg-primary-2 disabled:bg-raised disabled:text-ink-3 disabled:shadow-none disabled:opacity-100 disabled:ring-1 disabled:ring-inset disabled:ring-rule-2",
         destructive:
           "bg-destructive text-on-danger shadow-[var(--shadow-danger)] hover:opacity-90",
         outline:

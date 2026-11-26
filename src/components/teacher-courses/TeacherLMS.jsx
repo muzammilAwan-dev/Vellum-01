@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { BookOpen, ChevronDown, ChevronUp, ExternalLink, Pencil, Plus } from "lucide-react";
+import { BookOpen, ExternalLink, Plus } from "lucide-react";
 import { LessonEditor } from "./LessonEditor";
-import { Bento, ConfirmDialog, EmptyState, Field, ModalShell, PageError, PageLoading, Scope, inputClass } from "@/components/common";
+import { Bento, ConfirmDialog, EmptyState, Field, ModalShell, PageError, PageHeader, PageLoading, Scope, inputClass } from "@/components/common";
+import { ActionMenu } from "@/components/ui/menu";
 import { LessonIcon } from "@/components/common/lms/LessonIcon";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/useApp";
@@ -80,29 +81,21 @@ export const TeacherLMS = ({ onOpenDiscussion }) => {
     run(() => reorderLessons(course.id, moveId(course.lessons.map((l) => l.id), lesson.id, direction)));
 
   const header = (
-    <>
-      <div className="mb-5 flex items-center gap-2 text-[13px] font-medium text-ink-3">
-        <Scope /> <span className="text-ink-3">/</span> Courses
-      </div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="font-serif text-[28px] font-semibold tablet:text-[34px] leading-[1.1] tracking-[-0.02em] text-ink">
-            Courses <span className="text-ink-3">&amp; lessons</span>
-          </h1>
-          <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-ink-2">
-            Post lesson content alongside your tests. Students work through at their own pace and mark each one done.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <PageHeader
+      crumbs={[{ label: <Scope /> }, { label: "Courses" }]}
+      title="Courses"
+      intro="Post lesson content alongside your tests. Students work through it at their own pace and mark each lesson done."
+      actions={
+        <>
           {onOpenDiscussion && <Button onClick={onOpenDiscussion} variant="outline">Discussion</Button>}
           {activeSubject && (
             <Button onClick={() => setCourseModal({ course: null })}>
-              <Plus size={14} /> New course
+              <Plus size={14} aria-hidden="true" /> New course
             </Button>
           )}
-        </div>
-      </div>
-    </>
+        </>
+      }
+    />
   );
 
   let body;
@@ -129,33 +122,35 @@ export const TeacherLMS = ({ onOpenDiscussion }) => {
                   <BookOpen size={18} />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-display text-[16px] font-semibold tracking-[-0.01em] text-ink">{c.title}</div>
+                  <h2 className="font-display text-[16px] font-semibold tracking-[-0.01em] text-ink">{c.title}</h2>
                   <div className="mt-1 font-mono text-[12px] text-ink-3">
                     {c.subject} · {c.students} students · {c.lessons.length} {c.lessons.length === 1 ? "lesson" : "lessons"}
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <Button onClick={() => setCourseModal({ course: c })} variant="ghost" size="sm" aria-label={`Rename ${c.title}`}>
-                  <Pencil size={13} /> Rename
-                </Button>
-                <Button
-                  onClick={() =>
-                    setConfirm({
-                      title: "Delete this course?",
-                      message: `“${c.title}” and its ${c.lessons.length} lessons will be removed, along with every student's progress on them.`,
-                      confirmLabel: "Delete course",
-                      onConfirm: () => run(() => deleteCourse(c.id), "Course deleted"),
-                    })
-                  }
-                  variant="ghost"
-                  size="sm"
-                >
-                  Delete
-                </Button>
+              <div className="flex shrink-0 items-center gap-1">
                 <Button onClick={() => setEditor({ course: c, lesson: null })} variant="outline" size="sm">
-                  <Plus size={12} /> Add lesson
+                  <Plus size={12} aria-hidden="true" /> Add lesson
                 </Button>
+                <ActionMenu
+                  label={`Actions for ${c.title}`}
+                  items={[
+                    { id: "rename", label: "Rename", onSelect: () => setCourseModal({ course: c }) },
+                    {
+                      id: "delete",
+                      label: "Delete course",
+                      danger: true,
+                      separatorBefore: true,
+                      onSelect: () =>
+                        setConfirm({
+                          title: "Delete this course?",
+                          message: `“${c.title}” and its ${c.lessons.length} lessons will be removed, along with every student's progress on them.`,
+                          confirmLabel: "Delete course",
+                          onConfirm: () => run(() => deleteCourse(c.id), "Course deleted"),
+                        }),
+                    },
+                  ]}
+                />
               </div>
             </div>
 
@@ -165,14 +160,15 @@ export const TeacherLMS = ({ onOpenDiscussion }) => {
                 <div key={l.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-2 px-5 py-3.5">
                   <LessonIcon kind={l.kind} size={30} />
                   <div className="min-w-0 flex-1 basis-48">
-                    <div className="truncate text-[13.5px] font-medium text-ink">{l.title}</div>
+                    <div className="line-clamp-2 text-[13.5px] font-medium leading-snug text-ink [overflow-wrap:anywhere]">{l.title}</div>
                     <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[12px] text-ink-3">
                       <span>{l.duration}</span>
                       {l.url && (
                         <>
                           <span>·</span>
-                          <a href={l.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-primary hover:underline">
-                            source <ExternalLink size={10} />
+                          <a href={l.url} target="_blank" rel="noreferrer noopener" className="inline-flex min-h-6 items-center gap-1 rounded-sm text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40 pointer-coarse:min-h-8">
+                            Open source <ExternalLink size={11} aria-hidden="true" />
+                            <span className="sr-only">(opens in a new tab)</span>
                           </a>
                         </>
                       )}
@@ -187,47 +183,28 @@ export const TeacherLMS = ({ onOpenDiscussion }) => {
                   <div className="shrink-0 whitespace-nowrap font-mono text-[12px] text-ink-3">
                     {l.doneCount} / {c.students} done
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => move(c, l, "up")}
-                      disabled={i === 0}
-                      aria-label={`Move “${l.title}” up`}
-                      className="grid size-8 place-items-center rounded-[var(--radius-control)] text-ink-3 transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ChevronUp size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => move(c, l, "down")}
-                      disabled={i === c.lessons.length - 1}
-                      aria-label={`Move “${l.title}” down`}
-                      className="grid size-8 place-items-center rounded-[var(--radius-control)] text-ink-3 transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
-                    >
-                      <ChevronDown size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditor({ course: c, lesson: l })}
-                      className="rounded-[var(--radius-control)] px-2.5 py-1.5 text-[12px] font-medium text-ink-2 transition-colors hover:bg-raised hover:text-ink"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setConfirm({
-                          title: "Delete this lesson?",
-                          message: `“${l.title}” will be removed for everyone, along with their progress on it.`,
-                          confirmLabel: "Delete lesson",
-                          onConfirm: () => run(() => deleteLesson(l.id), "Lesson removed"),
-                        })
-                      }
-                      className="rounded-[var(--radius-control)] px-2.5 py-1.5 text-[12px] font-medium text-ink-3 transition-colors hover:bg-danger-dim hover:text-danger"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {/* Reorder, edit and delete in one menu: Move up/down only where it can move. */}
+                  <ActionMenu
+                    label={`Actions for lesson “${l.title}”`}
+                    items={[
+                      ...(i > 0 ? [{ id: "up", label: "Move up", onSelect: () => move(c, l, "up") }] : []),
+                      ...(i < c.lessons.length - 1 ? [{ id: "down", label: "Move down", onSelect: () => move(c, l, "down") }] : []),
+                      { id: "edit", label: "Edit lesson", onSelect: () => setEditor({ course: c, lesson: l }) },
+                      {
+                        id: "delete",
+                        label: "Delete lesson",
+                        danger: true,
+                        separatorBefore: true,
+                        onSelect: () =>
+                          setConfirm({
+                            title: "Delete this lesson?",
+                            message: `“${l.title}” will be removed for everyone, along with their progress on it.`,
+                            confirmLabel: "Delete lesson",
+                            onConfirm: () => run(() => deleteLesson(l.id), "Lesson removed"),
+                          }),
+                      },
+                    ]}
+                  />
                 </div>
               ))}
             </div>

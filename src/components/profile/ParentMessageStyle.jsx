@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { LoadingButton, inputClass } from "@/components/common";
+import { WhatsAppText } from "@/components/common/WhatsAppText";
 import { useToast } from "@/context/useToast";
 import { updateProfile } from "@/api/profile";
 import { cn } from "@/lib/cn";
@@ -45,7 +46,7 @@ const Seg = ({ label, value, options, onChange }) => {
 
 const Check = ({ checked, onChange, children }) => (
   <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[14px] text-ink pointer-coarse:min-h-11">
-    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-[var(--color-primary)]" />
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-primary)]" />
     {children}
   </label>
 );
@@ -104,11 +105,11 @@ export const ParentMessageStyle = ({ profile }) => {
         </div>
         <div>
           <div className="mb-1.5 text-[13px] font-medium text-ink-2">Preview (a made-up student)</div>
-          <pre dir="auto" className="min-h-40 whitespace-pre-wrap rounded-[var(--radius-control)] border border-rule bg-surface px-4 py-3 font-[inherit] text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]" aria-live="polite">
-            {out.text}
-          </pre>
+          <div aria-live="polite">
+            <WhatsAppText text={out.text} className="min-h-40 rounded-[var(--radius-control)] border border-rule bg-surface px-4 py-3 text-[13px] leading-relaxed text-ink [overflow-wrap:anywhere]" />
+          </div>
           <p className={cn("mt-1.5 text-[12px]", out.fits && out.level === 0 ? "text-ink-3" : "text-warning")} role="status">
-            {out.text.length} of {cap} characters
+            Shown as WhatsApp shows it (bold and italics). {out.text.length} of {cap} characters
             {out.level > 0 && " · trimmed to fit: a long comment or Urdu text is cut first"}
             {!out.fits && " · too long for one WhatsApp link"}
             {out.fits && fitsWhatsApp(out.text) && out.level === 0 ? " · fits one WhatsApp link" : ""}
